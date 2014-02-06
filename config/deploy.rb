@@ -1,3 +1,11 @@
+# to deploy:
+# 1. after you clone the project, make sure that you have your client_secrets.json, 
+#    database.yml, and application.yml files in your config directory.
+# 2. set up your deploy/destination.rb file.
+# 3. run:  cap destination deploy:check
+# 4. run:  cap destination deploy
+
+
 # config valid only for Capistrano 3.1
 lock '3.1.0'
 
@@ -22,14 +30,17 @@ set :repo_url, "https://github.com/mfrederickson/ccbc-contacts-gmail.git"
 set :log_level, :info
 set :pty, true
 
-# set :linked_files, %w{config/database.yml}
-# set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
+set :linked_files, %w{config/database.yml config/client_secrets.json config/application.yml}
+#set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
+set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
 
 # set :default_env, { path: "/opt/ruby/bin:$PATH" }
 # set :keep_releases, 5
 
 #after "deploy:assets:symlink", "custom:config"
+after 'deploy:publishing', 'deploy:restart'
 
+before 'deploy:check:linked_files', 'custom:upload_secrets'
 
 namespace :deploy do
   desc 'Restart application'
@@ -68,22 +79,12 @@ end
 
 # preserve the nondeployed app config
 namespace :custom do
-  desc "copy secret files to shared_path"
-  task :setup do
+  desc "copy secret config files to shared_path"
+  task :upload_secrets do
     on roles(:app) do
-      upload! "config/application.yml", "#{shared_path}/application.yml", via: :scp
-      upload! "config/database.yml", "#{shared_path}/database.yml", via: :scp
-      upload! "config/client_secrets.json", "#{shared_path}/client_secrets.json", via: :scp
-    end
-  end
-
-  task :config do
-    on roles(:app) do
-      run <<-END
-        ln -nfs #{shared_path}/application.yml #{release_path}/config/application.yml
-        ln -nfs #{shared_path}/database.yml #{release_path}/config/database.yml
-        ln -nfs #{shared_path}/client_secrets.json #{release_path}/config/client_secrets.json
-      END
+      upload! "config/application.yml", "#{shared_path}/config/application.yml", via: :scp
+      upload! "config/database.yml", "#{shared_path}/config/database.yml", via: :scp
+      upload! "config/client_secrets.json", "#{shared_path}/config/client_secrets.json", via: :scp
     end
   end
 end

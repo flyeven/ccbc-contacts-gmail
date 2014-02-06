@@ -16,6 +16,6 @@ capybara-*.html
 rerun.txt
 pickle-email-*.html
 .project
-/config/*.p12
-/config/*secret*
 /config/application.yml
+/config/client_secrets.json
+/config/database.yml
