@@ -1,0 +1,45 @@
+<h1>ccb contacts to gmail sync <small>(one way)</small></h1>
+
+<p class="alert alert-info">We've found your record.  The next step is for us to start updating contacts.</p>
+
+<%= render partial: "easy_steps" %>
+
+<%= form_tag(import_path, class: "update_options") do %>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <h3 class="panel-title">Update Options</h3>
+  </div>
+  <div class="panel-body">
+    <div class="row">
+
+      <%
+      colsize = (12 / @options.count).floor
+      @options.each do |k, v|
+      %>
+      <div class="col-md-<%= colsize %>">
+        <fieldset>
+          <h4 class="small"><%= k.to_s.upcase %></h4>
+          <% v.each do |h| %>
+            <div class="checkbox">
+              <label>
+                <%= check_box_tag(h[:name], 1, h[:value] == 1) %>
+                <%= label_tag(h[:name], h[:title]) %>
+              </label>
+            </div>
+          <% end %>
+        </fieldset>        
+      </div>
+      <% end %>
+
+    </div>
+  </div>
+</div>
+
+
+  <p>This step could take a while-- depending upon how many records need to be updated...</p>
+
+  <%= button_tag("Update my Contacts  <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, 
+    type: 'submit',
+    class: 'btn btn-success btn-default btn-lg') %>
+<% end %>

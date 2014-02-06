@@ -1,0 +1,17 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  email: MyString
+  md5: MyString
+  authorization: MyText
+  since: 2014-02-04
+  recurring: false
+
+two:
+  name: MyString
+  email: MyString
+  md5: MyString
+  authorization: MyText
+  since: 2014-02-04
+  recurring: false

@@ -1,0 +1,13 @@
+<h2>ccb individuals loaded</h2>
+<div>
+  <div class="col-sm-4 col-md-3">
+    <% @ccb_individuals.each do |i| %>
+    <div class="thumbnail">
+      <img src="<%= i.image%>"/>
+      <div class="caption">
+        <h3><%= i.full_name %></h3>
+      </div>
+    </div>
+    <% end unless @ccb_individuals.nil? %>
+  </div>
+</div>

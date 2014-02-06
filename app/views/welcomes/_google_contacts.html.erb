@@ -1,0 +1,18 @@
+   <div class="row">
+    <div class="col-sm-4 col-md-3">
+    <% @contacts.each do |c| %>
+      <% ccb_ids = c.udf("ccb_id") %>
+      <div class="thumbnail">
+        <% if c.photo_etag %>
+        <img src="data:image/png;base64,<%= Base64.encode64(@gclient.get(File.basename(c.id), { api_type: :photos, type: "media"})) %>"/>
+        <% else %>
+          <p>No Image</p>
+        <% end %>
+        <div class="caption">
+          <h3><%= c.title %></h3>
+          <p>CCB Individual Id = <%= ccb_ids.first if ccb_ids.is_a? Array %></p>
+        </div>
+      </div>
+    <% end %>
+    </div>
+  </div>

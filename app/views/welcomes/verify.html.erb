@@ -1,0 +1,13 @@
+<%# verification failed %>
+<h1>ccb contacts to gmail sync <small>(one way)</small></h1>
+
+<p class="alert alert-warning">We were unable to verify your access to <%= CCB_SUBDOMAIN %>.ccbchurch.com using your email address of <%= @user.email %>.  It might be that these two emails don't match-- if that is the case, you may either update your ccb record to
+reflect your google email address, or you can register the email address you have on record at ccb with your google mail account.</p>
+
+<%# should we allow public access to public listed info? %>
+
+<%= render partial: "easy_steps" %>
+
+<p>Click the button below when you are ready to try again.</p>
+
+<%= link_to "Look Me Up  <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, verify_path, class: 'btn btn-success btn-default btn-lg' %>

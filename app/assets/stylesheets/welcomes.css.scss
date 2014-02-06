@@ -1,0 +1,22 @@
+@import "bootstrap/variables";
+
+div.rounded {
+  margin: 1em;
+  padding: 1.5em 1em 1em 1em;
+  border-radius: $border-radius-large;
+}
+
+
+.bg-gray {
+  background-color: $gray-lighter;  
+}
+
+form.update_options fieldset {
+  padding-left: 1em;
+  padding-right: 1em;
+  
+  h4 {
+    color: $gray-light;
+    border-bottom: dotted 1px $gray-light;
+  }
+}

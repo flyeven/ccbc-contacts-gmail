@@ -1,0 +1,28 @@
+<div class="row">
+  <div class="col-md-4">
+    <div class="bg-<%= @connect_status %> text-center rounded">
+      <div class="lead">Step 1</div>
+      <i class="fa fa-sign-in fa-5x"></i>
+      <h2>Connect</h2>
+      <p>Authenticate with Google and grant us access to your name, email address, and contacts.</p>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="bg-<%= @verify_status %> text-center rounded">
+      <div class="lead">Step 2</div>
+      <i class="fa fa-check-circle fa-5x"></i>
+      <h2>Verify</h2>
+      <p>We will look you up in your ccb site so we can abide by permissions and privacy settings.</p>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="bg-<%= @import_status %> text-center rounded">
+      <div class="lead">Step 3</div>
+      <i class="fa fa-gears fa-5x"></i>
+      <h2>Update</h2>
+      <p>We will create (or update) contacts for each individual in your ccb site.</p>
+    </div>
+  </div>
+</div>

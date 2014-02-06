@@ -1,0 +1,22 @@
+<h1>ccb contacts to gmail sync <small>(one way)</small></h1>
+
+<p class="lead">This will create a contact group in your gmail account called "<%= "#{CCB_SUBDOMAIN}.ccb" %>" and
+populate it with all of the individuals in your ccb site that have 'profile listing' enabled.</p>
+
+<%= render partial: "easy_steps" %>
+
+<p class="small">Contacts that we create will also be added to your <i>system group</i> "My Contacts" because this is the group that gmail uses when syncing contacts to phones.</p>
+<p class="small">Only those contacts that we create will get updated.  If you already have an existing contact with the same name in another group, it will NOT be touched.  When a contact record is updated, it is completely overwritten-- so if you make changes to these contact records on your phone, those changes will be lost.  Instead, you should change them in ccb.</p>
+
+<%= form_tag(connect_path, method: "get") do %>
+  <div class="checkbox input-lg">
+    <label>
+      <%= check_box_tag('recur') %>
+      <%= label_tag('recur', "Automatically keep contacts up to date on a regular basis") %>
+    </label>
+  </div>
+
+  <%= button_tag("Let's Get Started  <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, 
+    type: 'submit',
+    class: 'btn btn-success btn-default btn-lg') %>
+<% end %>
