@@ -64,7 +64,8 @@ class WelcomesController < ApplicationController
       client_secrets = Google::APIClient::ClientSecrets.load('config/client_secrets.json')
       client.authorization = client_secrets.to_authorization
       client.authorization.scope = GAPI_SCOPE
-      client.authorization.code = params[:code] 
+      client.authorization.code = params[:code]
+      client.authorization.redirect_uri = oauth2callback_url
       client.authorization.fetch_access_token!
 
       # get information from google about who the user is
