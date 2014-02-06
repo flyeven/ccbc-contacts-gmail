@@ -2,9 +2,7 @@
 # 1. after you clone the project, make sure that you have your client_secrets.json, 
 #    database.yml, and application.yml files in your config directory.
 # 2. set up your deploy/destination.rb file.
-# 3. run:  cap destination deploy:check
-# 4. run:  cap destination deploy
-
+# 3. run:  cap destination deploy
 
 # config valid only for Capistrano 3.1
 lock '3.1.0'
