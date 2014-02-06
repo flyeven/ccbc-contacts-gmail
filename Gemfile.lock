@@ -1,12 +1,14 @@
-PATH
-  remote: ../church-community-builder-api-ruby
+GIT
+  remote: https://github.com/mfrederickson/church-community-builder-api-ruby.git
+  revision: 2aad3a1cdd34b686e01e155cc280a31be74c20c3
   specs:
     church-community-builder (0.1.5)
       typhoeus (= 0.6.6)
       xml-simple
 
-PATH
-  remote: ../google-contacts
+GIT
+  remote: https://github.com/mfrederickson/google-contacts
+  revision: 4e4ca437cc3cd036015d31fd8ba047dd4b83750e
   specs:
     google-contacts (0.0.1)
       nokogiri (~> 1.6.0)
