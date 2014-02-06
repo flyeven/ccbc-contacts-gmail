@@ -70,3 +70,5 @@ gem 'figaro'
 gem 'foreman', :group => :development
 gem 'delayed_job_active_record'
 gem 'clockwork'
+
+gem 'mysql2'
