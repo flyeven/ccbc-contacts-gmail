@@ -1,7 +1,6 @@
 class WelcomesController < ApplicationController
   before_action :set_user, except: [:connect, :index, :oauth2callback]
   before_action :initialize_easy_steps
-  before_action :initialize_ccb_api, only: [:verify, :import]
 
   MY_APP_NAME = "ccbc-contacts-gmail"
   MY_APP_VERSION = "1.0.0"
@@ -15,18 +14,23 @@ class WelcomesController < ApplicationController
       { name: 'primary', title: 'Include Primary Contacts', value: 1 },
       { name: 'spouse', title: 'Include Spouses', value: 1 },
       { name: 'children_other', title: 'Include Children and Other', value: 0 },
-      { name: 'replace_photo', title: 'Replace Existing Photo', value: 0 },
-      { name: 'marital_status', title: 'Include Marital Status', value: 1 },
       { name: 'inactive', title: 'Include Inactive', value: 1 },
-      { name: 'business', title: 'Include Businesses', value: 0 }
+      { name: 'business', title: 'Include Businesses', value: 0 },
+      { name: 'missing_info', title: 'Include if missing Email, Phone, and Address', value: 0 }
     ],
 
     notes: [
       { name: 'allergies', title: 'Include Known Allergies', value: 1 },
       { name: 'significant_events', title: 'Include Significant Events', value: 1 },
       { name: 'membership', title: 'Include Membership Info', value: 1 },
+      { name: 'marital_status', title: 'Include Marital Status', value: 1 },
       { name: 'family_members', title: 'Include Family Members (of Primary and Spouse)', value: 1 },
       { name: 'groups', title: 'Include Groups Belonged To', value: 1 }
+    ],
+
+    photos: [
+      { name: 'replace_photo', title: 'Replace Existing Photo', value: 0 },
+      { name: 'family_photo', title: 'Use Family Photo if No Individual', value: 1 }
     ]
   }
 
@@ -115,6 +119,7 @@ class WelcomesController < ApplicationController
     @connect_status = "success"
     @verify_status = "danger"
 
+    initialize_ccb_api(@user.subdomain)
     @ccb_individuals = ChurchCommunityBuilder::Search.search_for_person({email: @user.email, include_inactive: false})
     if @ccb_individuals.empty?
       flash.now[:alert] = "No individual at your ccb site could be found with that email address."
@@ -180,69 +185,102 @@ class WelcomesController < ApplicationController
     @user.options = options
     @user.save
 
-    client = Google::APIClient.new(application_name: MY_APP_NAME, application_version: MY_APP_VERSION)
-    client.authorization = @user.authorization
-    if client.authorization.nil? 
-      redirect_to :root, alert: "Your connection seems to have timed out.  Please try again."
-      return
+    begin
+      count_added, count_updated, count_deleted, count_skipped = perform_import(@user)
+      flash.now[:success] = "Finished! #{count_added} added, #{count_updated} updated, #{count_skipped} skipped."
+# TODO: just catch the timeout      
+    # rescue => e
+    #   redirect_to :root, alert: "Your connection seems to have timed out.  Please try again.  #{e.message}"
+    end
+  end
+
+
+
+
+# extract all this to a class so we can schedule via dj
+  # returns counts added, updated, deleted, and skipped
+  def perform_import(user)
+    # validate parameter
+    if user.nil?
+      raise ArgumentException, "user cannot be nil"
     end
 
-    gclient = GContacts::Client.new(:access_token => client.authorization.access_token)
+    # get the user's access token
+    google_api_client = Google::APIClient.new(application_name: MY_APP_NAME, application_version: MY_APP_VERSION)
+    google_api_client.authorization = user.authorization
+    if google_api_client.authorization.nil? 
+      raise ArgumentException, "authorization information is missing"
+    end
+# TODO: might need to       client.authorization.fetch_access_token!
 
-    # identify the ccb group and my contacts system group <gContact:systemGroup id='Contacts'/>
-    @groups = gclient.all(api_type: :groups)
-    @ccb_group = nil
-    @my_contacts_group = nil
-    @groups.each do |g|
-      if g.title == CCB_SUBDOMAIN + ".ccb"
-        @ccb_group = g
+    # initialize the ccb api
+    subdomain = initialize_ccb_api(user.subdomain)
+
+    # identify the gmail groups 
+    # ccb_group = "#{subdomain}.ccb" group 
+    # my_contacts_group = "my contacts" system group
+    contacts_api_client = GContacts::Client.new(:access_token => google_api_client.authorization.access_token)
+    groups = contacts_api_client.all(api_type: :groups)
+    ccb_group = nil
+    my_contacts_group = nil
+    groups.each do |g|
+      if g.title == subdomain + ".ccb"
+        ccb_group = g
       elsif g.data.include?("gContact:systemGroup") and g.data["gContact:systemGroup"].first["@id"] == "Contacts"
-        @my_contacts_group = g
+        my_contacts_group = g
       end
     end
     # if the custom ccb group doesn't exist yet, then create it
-    if !@ccb_group
-      # need to create
-      @ccb_group = GContacts::Element.new
-      @ccb_group.category = "group"
-      @ccb_group.title = CCB_SUBDOMAIN + ".ccb"
-      @ccb_group.content = "Group for #{CCB_SUBDOMAIN} individuals from CCB."
-      @ccb_group = gclient.create!(@ccb_group)
+    if !ccb_group
+      ccb_group = GContacts::Element.new
+      ccb_group.category = "group"
+      ccb_group.title = subdomain + ".ccb"
+      ccb_group.content = "Group for #{subdomain}.ccbchurch.com individuals."
+      ccb_group = contacts_api_client.create!(ccb_group)
     end
 
-    # get up to 5000 of their gmail contacts that are in our ccb group
-    @contacts = gclient.all(params: { "max-results" => 5000, "group" => @ccb_group.id })
-    
-    # get all the ccb individuals that have changed since the last time we updated
+    # get up to 5000 of the existing gmail contacts
+# TODO: document and maybe raise this limitation
+    gmail_contacts = contacts_api_client.all(params: { "max-results" => 5000, "group" => ccb_group.id })
+
+
+    # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
-    since = @user.since.nil? ? 3.days.ago.strftime("%F") : (@user.since - 1).strftime("%F")
-Rails.logger.debug("refreshing since #{since}")
-    #@ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(1154)]
-    @ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
+    since = @user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
+    ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
+    #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(1154)]
 
+    count_added = 0
+    count_updated = 0
+    count_deleted = 0
+    count_skipped = 0
+    options = user.options
 
+    # for each ccb individual add to the gmail group if possible
+    ccb_individuals.each do |i|
+      # find the corresponding gmail contacts record for this individual
+      nc = find_contact(gmail_contacts, i.id)
 
+# TODO: need to provide for church leadership getting everyone regardless of their privacy
 
+      if i.privacy_settings["profile_listed"] == "false" and !nc.blank?
+# TODO: we need to delete this contact from gmail because the individual wants to be excluded from listings
+        count_skipped += 1
+      elsif i.privacy_settings["profile_listed"] == "false"
+        count_skipped += 1
+      elsif !option_set?(options, 'business') and i.family_position == "Business"
+        count_skipped += 1
+      elsif !option_set?(options, 'inactive') and i.active == "false"
+        count_skipped += 1
+      elsif !option_set?(options, 'primary') and i.family_position == "Primary Contact"
+        count_skipped += 1
+      elsif !option_set?(options, 'spouse') and i.family_position == "Spouse"
+        count_skipped += 1
+      elsif !option_set?(options, 'children_other') and !["Business", "Primary Contact", "Spouse"].include?(i.family_position)
+        count_skipped += 1
+      else
 
-
-
-    @count_added = 0
-    @count_updated = 0
-    @count_deleted = 0
-    @count_skipped = 0
-
-    #load_ccb
-    @ccb_individuals.each do |i|
-      # for each ccb individual, find the corresponding @contact record and update it, or add a new one
-
-      # only add to gmail contacts if they want their profile listed
-      if i.privacy_settings["profile_listed"] == "true" and ["Primary Contact", "Spouse"].include?(i.family_position)
-        nc = find_contact(@contacts, i.id)
-        if !nc
-          nc = GContacts::Element.new
-          nc.category = "contact"
-        end
-
+        # gather info that might be missing which may mean we want to exclude them
         addresses, emails, phones = [], [], []
         emails << { "@rel" => "http://schemas.google.com/g/2005#other", "@address" => i.email, "@primary" => "true" } if !i.email.blank?
 
@@ -269,94 +307,140 @@ Rails.logger.debug("refreshing since #{since}")
             "@rel" => "http://schemas.google.com/g/2005##{type}" } if !line_1.blank? && !line_2.blank?  && present_and_public?(i, key)
         end
 
-        # set membership in ccb_subdomain contact group
-        nc.groups = []
-        nc.groups << @ccb_group.id
-        nc.groups << @my_contacts_group.id
-
-        # indicate membership type and family members in comments
-        nc.content = ""
-        if present_and_public?(i, 'anniversary')
-          nc.content << "Anniversary: " + DateTime.parse(i.anniversary).strftime("%B %e, %Y") + "\n"
-        end
-        nc.content << i.membership_type["content"] + "\n"
-        if i.family_position == "Primary Contact" or i.family_position == "Spouse"
-          # load all family relations
-          i.family_members["family_member"].each do |data|
-            nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
-          end unless i.family_members.blank?
+        if !option_set?(options, 'missing_info') and phones.empty? and emails.empty? and addresses.empty?
+          count_skipped += 1
         else
-          # just load primary contact
-          i.family_members["family_member"].each do |data|
-            if data["family_position"] == "Primary Contact"
-              nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+          # create a gmail contact record if we didnt find an existing one
+          if !nc
+            nc = GContacts::Element.new
+            nc.category = "contact"
+          end
+
+          # set membership in ccb_subdomain contact group
+          nc.groups = []
+          nc.groups << ccb_group.id
+          nc.groups << my_contacts_group.id
+
+          ## build the notes (from scratch)
+          nc.content = ""
+
+          # indicate membership type and family members in comments
+          if option_set?(options, "membership")
+            nc.content << i.membership_type["content"]
+            if i.membership_end.blank? and i.membership_date.blank?
+              # no range specified
+            elsif !i.membership_end.blank? and !i.membership_date.blank?
+              nc.content << " (#{DateTime.parse(i.membership_date).strftime("%B %e, %Y")} - #{DateTime.parse(i.membership_end).strftime("%B %e, %Y")})"
+            elsif i.membership_end.blank?
+              nc.content << " (since #{DateTime.parse(i.membership_date).strftime("%B %e, %Y")})"
             end
-          end unless i.family_members.blank?
-        end
-# TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
-        data = {
-          "gd:name" => { "gd:fullName" => i.full_name },
-          "gd:email" => emails,
-          "gd:phoneNumber" => phones,
-          "gd:structuredPostalAddress" => addresses,
-          "gContact:userDefinedField" => [ { "@key" => "ccb_id", "@value" => i.id.to_s } ]
-        }
+            nc.content << "\n"
+          end
 
-        # set birthday
-        data["gContact:birthday"] = { "@when" => i.birthday } if !i.birthday.blank?
+          # indicate anniversary
+          if present_and_public?(i, 'anniversary')
+            nc.content << "Anniversary: " + DateTime.parse(i.anniversary).strftime("%B %e, %Y") + "\n"
+          end
 
-        # add or update the contact record
-        nc.data = data
-        if phones.empty? and emails.empty? and addresses.empty?
-          # dont add because there is no way to "contact" this person
-Rails.logger.debug("   skipping #{nc.data["gd:name"]["gd:fullName"]} - no contact methods populated in ccb")
-          @count_skipped += 1
-        else
+          if i.family_position == "Primary Contact" or i.family_position == "Spouse"
+            # load all family relations
+            i.family_members["family_member"].each do |data|
+              nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+            end unless i.family_members.blank?
+          else
+            # just load primary contact
+            i.family_members["family_member"].each do |data|
+              if data["family_position"] == "Primary Contact"
+                nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+              end
+            end unless i.family_members.blank?
+          end
+
+  # TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
+          data = {
+            "gd:name" => { "gd:fullName" => i.full_name },
+            "gd:email" => emails,
+            "gd:phoneNumber" => phones,
+            "gd:structuredPostalAddress" => addresses,
+            "gContact:userDefinedField" => [ { "@key" => "ccb_id", "@value" => i.id.to_s } ]
+          }
+
+          # set birthday
+          if present_and_public?(i, 'birthday')
+            data["gContact:birthday"] = { "@when" => i.birthday } 
+          else
+            # remove it?
+            data.delete("gContact:birthday") if data.include?("gContact:birthday")
+          end
+
+          # add or update the contact record
+          nc.data = data
           if nc.id.nil?
 Rails.logger.debug("adding #{nc.data["gd:name"]["gd:fullName"]}")
-            nc = gclient.create!(nc)
-            #@contacts << nc
-            @count_added += 1
+            nc = contacts_api_client.create!(nc)
+            #gmail_contacts << nc
+            count_added += 1
           else
 Rails.logger.debug("updating #{nc.data["gd:name"]["gd:fullName"]}")
-            nc = gclient.update!(nc)
-            @count_updated += 1
+            nc = contacts_api_client.update!(nc)
+            count_updated += 1
           end
-        end
 
-# TODO: batch all this stuff
-# TODO: support recurring
+  # TODO: batch all this stuff
+  # TODO: support recurring
 
-        # grab the existing photo -- unless we already have one
-        if !i.image.blank? && nc.photo_etag.blank? && File.basename(i.image) != "profile-default.gif"
-Rails.logger.debug("getting and setting photo")          
-          results = raw_http_request(i.image)
-          begin
-            gclient.update_photo!(nc, results.body, "image/*")
-            #nc = gclient.get(File.basename(nc.id))
-          rescue => e
+          # if there is no contact photo yet or we are allowed to overwrite the photo
+          if nc.photo_etag.blank? or option_set?(options, "replace_photo")
+            # if no image exists for the individual or it is the stock image
+            # and we are allowed to use the family one instead then try it
+            image_url = i.image
+            if stock_image?(image_url) and option_set?(options, "family_photo")
+              image_url = i.family_image
+            end
+            # if we have a valid photo from ccb then get it
+            if !stock_image?(image_url)
+              # fetch the image from ccb
+              results = raw_http_request(i.image)
+              begin
+                # upload it to the gmail contact record, but sometimes google will prevent this
+                # i think they do that when their email is associated with a google plus account
+                contacts_api_client.update_photo!(nc, results.body, "image/*")
+              rescue => e
+# TODO: we will want to report on this somehow
 Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
-            flash.now[:errors] ||= []
-            flash.now[:errors] << "could not update photo for #{i.full_name} - #{e.message}"
+              end
+            else
+              # should we wipeout the existing image if the user cleared theirs out at ccb?
+            end
           end
-        else
-          # wipeout the image
-          # gclient.delete!(nc)  ????
         end
-      else
-        # not allowed to see profile or doesnt meet criteria
-        @count_skipped += 1
       end
     end
 
-# TODO: need to loop through the @contacts and remove those that... ?
+# TODO: need to loop through the gmail_contacts and remove those that... ?
 
-    @user.since = Date.today
-    @user.save
+    # indicate when the user's ccb individuals were last imported
+    user.since = Date.today
+    user.save
 
-    @gclient = gclient
+    return count_added, count_updated, count_deleted, count_skipped
+  end
 
-    flash.now[:success] = "Finished! #{@count_added} added, #{@count_updated} updated, #{@count_skipped} skipped."
+  # returns true if the named option is set
+  def option_set?(options, name)
+    results = false
+    options.each do |k,v|
+      results = results or !v.select{|h| h[:name] == name and h[:value] == '1'}.blank?
+    end
+
+    results
+  end
+
+  # check to see if the image is a stock_image (or empty)
+  def stock_image?(image_url)
+    results = image_url.blank?
+    results = results or File.basename(image_url) == "profile-default.gif" or 
+      !image_url.include?("?") or File.basename(image_url) == "group-sm-default.gif"
   end
 
   # STEP 4.5 - IMPORTED
@@ -413,21 +497,24 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
       @import_status = "gray"
     end
 
-    # Initializes the ccb_api with the user specific or default connection parameters.
-    def initialize_ccb_api
-      subdomain = CCB_SUBDOMAIN
+    # Initializes the ccb_api with the credentials for the specified or default subdomain.
+    # returns subdomain that was initialized
+    def initialize_ccb_api(subdomain)
+      api_subdomain = CCB_SUBDOMAIN
       api_user = CCB_USERNAME
       api_password = CCB_PASSWORD
 
-      if @user
-        ccb_config = CcbConfig.find_by(subdomain: @user.subdomain)
+      if subdomain
+        ccb_config = CcbConfig.find_by(subdomain: subdomain)
         if ccb_config
-          subdomain = ccb_config.subdomain
+          api_subdomain = ccb_config.subdomain
           api_user = ccb_config.api_user
           api_password = ccb_config.api_password
         end
       end
-      ChurchCommunityBuilder::Api.connect(api_user, api_password, subdomain)
+      ChurchCommunityBuilder::Api.connect(api_user, api_password, api_subdomain)
+
+      api_subdomain
     end
 
     # raw http_request for urls other than google contact

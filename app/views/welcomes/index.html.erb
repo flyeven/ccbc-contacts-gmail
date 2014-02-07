@@ -1,11 +1,11 @@
 <h1>ccb contacts to gmail sync <small>(one way)</small></h1>
 
-<p class="lead">This will create a contact group in your gmail account called "<%= "#{CCB_SUBDOMAIN}.ccb" %>" and
+<p class="lead">This will create a contact group in your gmail account called "YOURCHURCH.ccb" %>" and
 populate it with all of the individuals in your ccb site that have 'profile listing' enabled.</p>
 
 <%= render partial: "easy_steps" %>
 
-<p class="small">Contacts that we create will also be added to your <i>system group</i> "My Contacts" because this is the group that gmail uses when syncing contacts to phones.</p>
+<p class="small">Contacts that we create will also be added to your <i>system</i> group "My Contacts" because this is the group that gmail uses when syncing contacts to phones.</p>
 <p class="small">Only those contacts that we create will get updated.  If you already have an existing contact with the same name in another group, it will NOT be touched.  When a contact record is updated, it is completely overwritten-- so if you make changes to these contact records on your phone, those changes will be lost.  Instead, you should change them in ccb.</p>
 
 <%= form_tag(connect_path, method: "get") do %>
