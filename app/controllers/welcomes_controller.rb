@@ -253,8 +253,8 @@ class WelcomesController < ApplicationController
     # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
     since = @user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
-    #ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
-    ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
+    ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
+    #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
 
     count_added = 0
     count_updated = 0
