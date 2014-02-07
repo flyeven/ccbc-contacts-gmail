@@ -1,4 +1,6 @@
 class WelcomesController < ApplicationController
+  rescue_from Exception, :with => :error_handler
+
   before_action :set_user, except: [:connect, :index, :oauth2callback]
   before_action :initialize_easy_steps
 
@@ -37,6 +39,10 @@ class WelcomesController < ApplicationController
   require 'version'
   require 'google/api_client'
   require 'google/api_client/client_secrets'
+
+  def error_handler(exception)
+    redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + exception.message + "]"
+  end
 
   # WELCOME 
   def index
@@ -247,8 +253,8 @@ class WelcomesController < ApplicationController
     # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
     since = @user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
-    ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
-    #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(1154)]
+    #ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
+    ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
 
     count_added = 0
     count_updated = 0
@@ -265,18 +271,25 @@ class WelcomesController < ApplicationController
 
       if i.privacy_settings["profile_listed"] == "false" and !nc.blank?
 # TODO: we need to delete this contact from gmail because the individual wants to be excluded from listings
+        Rails.logger.debug("need to delete #{i.full_name} because they requested privacy")
         count_skipped += 1
       elsif i.privacy_settings["profile_listed"] == "false"
-        count_skipped += 1
-      elsif !option_set?(options, 'business') and i.family_position == "Business"
-        count_skipped += 1
-      elsif !option_set?(options, 'inactive') and i.active == "false"
+        Rails.logger.debug("skipping #{i.full_name} due to privacy request")
         count_skipped += 1
       elsif !option_set?(options, 'primary') and i.family_position == "Primary Contact"
+        Rails.logger.debug("skipping #{i.full_name} due to being a Primary Contact")
+        count_skipped += 1
+      elsif !option_set?(options, 'business') and i.family_position == "Business"
+        Rails.logger.debug("skipping #{i.full_name} due to business listing")
+        count_skipped += 1
+      elsif !option_set?(options, 'inactive') and i.active == "false"
+        Rails.logger.debug("skipping #{i.full_name} due to inactive")
         count_skipped += 1
       elsif !option_set?(options, 'spouse') and i.family_position == "Spouse"
+        Rails.logger.debug("skipping #{i.full_name} due to being a Spouse")
         count_skipped += 1
       elsif !option_set?(options, 'children_other') and !["Business", "Primary Contact", "Spouse"].include?(i.family_position)
+        Rails.logger.debug("skipping #{i.full_name} due to being a Child or Other")
         count_skipped += 1
       else
 
@@ -308,6 +321,7 @@ class WelcomesController < ApplicationController
         end
 
         if !option_set?(options, 'missing_info') and phones.empty? and emails.empty? and addresses.empty?
+          Rails.logger.debug("skipping #{i.full_name} due to empty contact details")
           count_skipped += 1
         else
           # create a gmail contact record if we didnt find an existing one
@@ -324,6 +338,11 @@ class WelcomesController < ApplicationController
           ## build the notes (from scratch)
           nc.content = ""
 
+          # indicate allergies
+          if option_set?(options, "allergies") and present_and_public?(i, 'allergies')
+            nc.content << "Allergies: #{i.allergies}\n"
+          end
+
           # indicate membership type and family members in comments
           if option_set?(options, "membership")
             nc.content << i.membership_type["content"]
@@ -335,6 +354,11 @@ class WelcomesController < ApplicationController
               nc.content << " (since #{DateTime.parse(i.membership_date).strftime("%B %e, %Y")})"
             end
             nc.content << "\n"
+          end
+
+          # indicate marital status
+          if option_set?(options, 'marital_status') and present_and_public?(i, 'marital_status')
+            nc.content << "Marital Status: #{marital_status}\n"
           end
 
           # indicate anniversary
@@ -356,6 +380,9 @@ class WelcomesController < ApplicationController
             end unless i.family_members.blank?
           end
 
+# TODO: load other notes options data and maybe passions, skills, etc.
+
+
   # TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
           data = {
             "gd:name" => { "gd:fullName" => i.full_name },
@@ -376,12 +403,12 @@ class WelcomesController < ApplicationController
           # add or update the contact record
           nc.data = data
           if nc.id.nil?
-Rails.logger.debug("adding #{nc.data["gd:name"]["gd:fullName"]}")
+            Rails.logger.debug("adding #{nc.data["gd:name"]["gd:fullName"]}")
             nc = contacts_api_client.create!(nc)
             #gmail_contacts << nc
             count_added += 1
           else
-Rails.logger.debug("updating #{nc.data["gd:name"]["gd:fullName"]}")
+            Rails.logger.debug("updating #{nc.data["gd:name"]["gd:fullName"]}")
             nc = contacts_api_client.update!(nc)
             count_updated += 1
           end
@@ -430,7 +457,8 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
   def option_set?(options, name)
     results = false
     options.each do |k,v|
-      results = results or !v.select{|h| h[:name] == name and h[:value] == '1'}.blank?
+      results = (results or !v.select{|h| h[:name] == name and h[:value] == 1}.blank?)
+      break if results
     end
 
     results
@@ -466,8 +494,9 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
 
   def present_and_public?(individual, key)
 # TODO: respect levels like friends, group members, etc.
-    value = individual.send key
-    !value.blank? && (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "3" : true)
+    value = individual.send key if individual.respond_to?(key)
+# TODO: uncomment to start enforcing privacy
+    !value.blank? #&& (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "3" : true)
   end
 
   def find_contact(contacts, ccb_id)
@@ -530,12 +559,8 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
           http.verify_mode = OpenSSL::SSL::VERIFY_NONE
         end
 
-        #request = Net::HTTP::Get.new uri
-        #http = Net::HTTP.new(uri.host, uri.port)
-        #headers = http.request_head(uri.to_s)
         response = http.request_get(uri.to_s)
-
-        return response#, headers
+        return response
       end
     end
 
