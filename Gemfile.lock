@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mfrederickson/church-community-builder-api-ruby.git
-  revision: f782bcb1e265d6550554f8d98ebe04223c42e10e
+  revision: 7b8ce11924f0934192f4c42a1742fe1c8da13c57
   specs:
     church-community-builder (0.1.5)
       typhoeus (= 0.6.6)
@@ -201,8 +201,8 @@ GEM
       net-scp (>= 1.1.2)
       net-ssh
       term-ansicolor
-    term-ansicolor (1.2.2)
-      tins (~> 0.8)
+    term-ansicolor (1.3.0)
+      tins (~> 1.0)
     therubyracer (0.12.1)
       libv8 (~> 3.16.14.0)
       ref
@@ -214,7 +214,7 @@ GEM
     thread_safe (0.1.3)
       atomic
     tilt (1.4.1)
-    tins (0.13.2)
+    tins (1.0.0)
     treetop (1.4.15)
       polyglot
       polyglot (>= 0.3.1)
