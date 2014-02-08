@@ -1,9 +1,9 @@
-<h1>ccb contacts to gmail sync <small>(one way)</small></h1>
 
-<p class="alert alert-info">Thanks, <%= @user.name %>.  The next step is for us to automatically verify your access to <%= CCB_SUBDOMAIN %>.ccbchurch.com using your email address of <%= @user.email %></p>
+<p class="alert alert-info">Thanks for granting us access to manage your contacts, <%= @user.name %>.  The next step is for us to automatically verify your access to <%= CCB_SUBDOMAIN %>.ccbchurch.com using your email address of <%= @user.email %></p>
 
 <%= render partial: "easy_steps" %>
 
 <p>This step will provide us access to individual member information and allow us to determine how to respect their privacy settings.</p>
 
-<%= link_to "Step 2 - Let's Find You  <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, verify_path, class: 'btn btn-success btn-default btn-lg' %>
+<%= link_to "Step 2 - Let's Find You &nbsp; <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, verify_path, class: 'btn btn-success btn-default btn-lg',
+disable_with: "Searching... <i class='fa fa-spin fa-spinner'></i>".html_safe  %>

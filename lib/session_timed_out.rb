@@ -1,0 +1,2 @@
+class SessionTimedOut < StandardError
+end

@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140205223824) do
+ActiveRecord::Schema.define(version: 20140207170922) do
 
   create_table "ccb_configs", force: true do |t|
     t.string   "subdomain"
@@ -50,7 +50,7 @@ ActiveRecord::Schema.define(version: 20140205223824) do
     t.datetime "updated_at"
     t.integer  "ccb_id"
     t.string   "subdomain"
-    t.string   "options"
+    t.text     "options",       limit: 255
   end
 
   add_index "users", ["email"], name: "index_users_on_email"

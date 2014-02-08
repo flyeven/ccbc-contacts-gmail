@@ -1,1 +1,1 @@
-VERSION="1.0.0"
+# see app_version initializer

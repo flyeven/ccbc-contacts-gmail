@@ -12,6 +12,7 @@ CcbcContactsGmail::Application.routes.draw do
   get 'verified', to: 'welcomes#verified', as: :verified
 
   post 'import', to: 'welcomes#import', as: :import
+  get 'importing', to: 'welcomes#importing', as: :importing
   get 'imported', to: 'welcomes#imported', as: :imported
   
   get 'oauth2callback', to: 'welcomes#oauth2callback', as: :oauth2callback
@@ -65,4 +66,7 @@ CcbcContactsGmail::Application.routes.draw do
   #     # (app/controllers/admin/products_controller.rb)
   #     resources :products
   #   end
+
+  # see https://gist.github.com/Sujimichi/2349565
+  match '*unmatched_route', via: [:get, :post], to: 'application#raise_not_found!'
 end
