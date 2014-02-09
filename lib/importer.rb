@@ -223,7 +223,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
           if i.family_position == "Primary Contact" or i.family_position == "Spouse"
             # load all family relations
-            nc.content << "Family Members:\n"
+            nc.content << "\nFamily Members:\n"
             i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
               nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
             end unless i.family_members.blank?
@@ -239,7 +239,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           # load significant events
           if option_set?(options, 'significant_events')
             if !i.load_significant_events.blank?
-              nc.content << "Significant Events:\n"
+              nc.content << "\nSignificant Events:\n"
               i.significant_events.each do |e|
                 nc.content << "-#{e[:name]} #{DateTime.parse(e[:date]).strftime("%B %e, %Y")}\n"
               end
@@ -250,7 +250,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           if option_set?(options, 'groups')
             ig = ccb_individual_groups.find_by_id(i.id)
             if ig and !ig.groups.empty?
-              nc.content << "Groups:\n"
+              nc.content << "\nGroups:\n"
               ig.groups.sort_by {|e| e.name }.each do |g|
                 nc.content << "-#{g.name}\n"
               end
@@ -352,8 +352,7 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
   def self.present_and_public?(individual, key)
 # TODO: respect levels like friends, group members, etc.
     value = individual.send key if individual.respond_to?(key)
-# TODO: uncomment to start enforcing privacy
-    !value.blank? #&& (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "3" : true)
+    !value.blank? && (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "4" : true)
   end
 
   def self.find_contact(contacts, ccb_id)
