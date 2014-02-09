@@ -236,12 +236,12 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
             end unless i.family_members.blank?
           end
 
-          # load signigicant events
+          # load significant events
           if option_set?(options, 'significant_events')
             if !i.load_significant_events.blank?
               nc.content << "Significant Events:\n"
               i.significant_events.each do |e|
-                nc.content << "-#{e.name} #{DateTime.parse(e.date).strftime("%B %e, %Y")}\n"
+                nc.content << "-#{e[:name]} #{DateTime.parse(e[:date]).strftime("%B %e, %Y")}\n"
               end
             end
           end
