@@ -1,17 +1,18 @@
 GIT
+  remote: https://github.com/mfrederickson/church-community-builder-api-ruby
+  revision: df5f7e0d51364929d60afa199e090a3e816ae056
+  specs:
+    church-community-builder (0.1.5)
+      typhoeus (= 0.6.6)
+      xml-simple
+
+GIT
   remote: https://github.com/mfrederickson/google-contacts
   revision: f5f75060effe782f165c48339970115999963838
   specs:
     google-contacts (0.0.1)
       nokogiri (~> 1.6.0)
       nori (~> 1.1.0)
-
-PATH
-  remote: ../church-community-builder-api-ruby
-  specs:
-    church-community-builder (0.1.5)
-      typhoeus (= 0.6.6)
-      xml-simple
 
 GEM
   remote: https://rubygems.org/
