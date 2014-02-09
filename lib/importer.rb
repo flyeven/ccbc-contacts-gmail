@@ -12,12 +12,12 @@ class Importer
     ],
 
     notes: [
-      { name: 'allergies', title: 'Include Known Allergies', value: 1 },
+      { name: 'allergies', title: 'Include Allergies', value: 1 },
       { name: 'significant_events', title: 'Include Significant Events', value: 1 },
-      { name: 'membership', title: 'Include Membership Info', value: 1 },
+      { name: 'membership', title: 'Include Membership', value: 1 },
       { name: 'marital_status', title: 'Include Marital Status', value: 1 },
       { name: 'family_members', title: 'Include Family Members (of Primary and Spouse)', value: 1 },
-      { name: 'groups', title: 'Include Groups Belonged To', value: 1 },
+      { name: 'groups', title: 'Include Groups', value: 1 },
       { name: 'passions', title: 'Include Passions', value: 1 },
       { name: 'abilities', title: 'Include Skills and Abilities', value: 1 }
     ],
@@ -97,13 +97,19 @@ class Importer
     # get up to 5000 of the existing gmail contacts
 # TODO: document and maybe raise this limitation
     gmail_contacts = contacts_api_client.all(params: { "max-results" => 5000, "group" => ccb_group.id })
-
+Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
-    since = user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
-    ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since)
+# TODO: only go back 1 day, 7 is for testing    
+    since = user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 7).strftime("%F")
+
+    ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since, option_set?(options, 'inactive'))
     #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
+
+# TODO: only load massive list if more than x in the ccb_individuals, otherwise use the
+# individuals#load_groups to get them
+    ccb_individual_groups = ChurchCommunityBuilder::Search.individual_groups
 
     count_added = 0
     count_updated = 0
@@ -217,8 +223,9 @@ class Importer
 
           if i.family_position == "Primary Contact" or i.family_position == "Spouse"
             # load all family relations
-            i.family_members["family_member"].each do |data|
-              nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+            nc.content << "Family Members:\n"
+            i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
+              nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
             end unless i.family_members.blank?
           else
             # just load primary contact
@@ -229,7 +236,29 @@ class Importer
             end unless i.family_members.blank?
           end
 
-# TODO: load other notes options data: significant dates, passions, skills and abilities, etc.
+          # load signigicant events
+          if option_set?(options, 'significant_events')
+            if !i.load_significant_events.blank?
+              nc.content << "Significant Events:\n"
+              i.significant_events.each do |e|
+                nc.content << "-#{e.name} #{DateTime.parse(e.date).strftime("%B %e, %Y")}\n"
+              end
+            end
+          end
+
+          # load group membership
+          if option_set?(options, 'groups')
+            ig = ccb_individual_groups.find_by_id(i.id)
+            if ig and !ig.groups.empty?
+              nc.content << "Groups:\n"
+              ig.groups.sort_by {|e| e.name }.each do |g|
+                nc.content << "-#{g.name}\n"
+              end
+            end
+          end
+
+
+# TODO: load other notes options data: passions, skills and abilities, etc.
 
 
   # TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
@@ -252,12 +281,11 @@ class Importer
           # add or update the contact record
           nc.data = data
           if nc.id.nil?
-            Rails.logger.debug("adding #{nc.data["gd:name"]["gd:fullName"]}")
+Rails.logger.debug("adding #{i.full_name}")
             nc = contacts_api_client.create!(nc)
-            #gmail_contacts << nc
             count_added += 1
           else
-            Rails.logger.debug("updating #{nc.data["gd:name"]["gd:fullName"]}")
+Rails.logger.debug("updating #{i.full_name}")
             nc = contacts_api_client.update!(nc)
             count_updated += 1
           end
@@ -329,6 +357,7 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
   end
 
   def self.find_contact(contacts, ccb_id)
+    ccb_id = ccb_id.to_s if !ccb_id.is_a?(String)
     matches = contacts.select do |contact|
       ccb_ids = contact.udf('ccb_id')
       ccb_ids.is_a?(Array) && !ccb_ids.empty? && ccb_ids.first == ccb_id
@@ -370,6 +399,7 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
         api_password = ccb_config.api_password
       end
     end
+    #ChurchCommunityBuilder::Api.connect(CCB_USERNAME, CCB_PASSWORD, CCB_SUBDOMAIN)
     ChurchCommunityBuilder::Api.connect(api_user, api_password, api_subdomain)
 
     api_subdomain

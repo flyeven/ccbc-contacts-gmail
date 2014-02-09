@@ -60,7 +60,8 @@ group :development do
 end
 
 gem 'google-api-client'
-gem 'church-community-builder', :require => 'ccb_api', git: 'https://github.com/mfrederickson/church-community-builder-api-ruby.git'
+#gem 'church-community-builder', :require => 'ccb_api', git: 'https://github.com/mfrederickson/church-community-builder-api-ruby.git'
+gem 'church-community-builder', :require => 'ccb_api', path: '../church-community-builder-api-ruby'
 gem 'google-contacts', git: 'https://github.com/mfrederickson/google-contacts'
 
 gem 'attr_encrypted'

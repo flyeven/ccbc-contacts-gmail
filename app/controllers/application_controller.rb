@@ -7,7 +7,7 @@ class ApplicationController < ActionController::Base
 
   rescue_from Exception do |exception|
     redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + exception.message + "]"
-  end
+  end if Rails.env.downcase == "production"
 
   rescue_from ActionController::InvalidAuthenticityToken, with: :timed_out_handler
   rescue_from SessionTimedOut, with: :timed_out_handler
