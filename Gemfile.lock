@@ -1,8 +1,8 @@
 GIT
   remote: https://github.com/mfrederickson/church-community-builder-api-ruby
-  revision: 383eda93f3beb4a5a16215e310fa35ed313fac7e
+  revision: 4183e190f0f1b9b937278a08248053e97539e84f
   specs:
-    church-community-builder (0.1.5)
+    church-community-builder (0.1.6)
       typhoeus (= 0.6.6)
       xml-simple
 
