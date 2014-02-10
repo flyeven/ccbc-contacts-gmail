@@ -12,11 +12,12 @@
 # SET THESE DEFAULTS ACCORDING TO YOUR SYSTEM CONFIGURATION
 # YOU CAN OVERRIDE THESE IN YOUR /etc/defaults/ccbc-contacts-gmail
 USERNAME=deploy
-DEPLOYDIR=/media/blue2/webapps/ccbc-contacts-gmail
+DEPLOYDIR=/media/blue2/webapps/ccbc-contacts-gmail/current
 RAILS_ENVIRONMENT=production
+# BUNDLER=/usr/local/rvm/wrappers/default/bundle
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+# PATH=/sbin:/usr/sbin:/bin:/usr/bin:$PATH
 DESC="ccbc-contacts-gmail background services"
 DAEMON_DESC="$DESC daemon"  # clockwork
 WORKER_DESC="$DESC worker"  # jobs:work
@@ -57,7 +58,9 @@ do_start()
         if [ $RUNNING -eq 0 ]; then
           log_daemon_msg "$DAEMON_DESC already running"
         else
-          su - $USERNAME -c "cd $DEPLOYDIR; export PORT=5000; RAILS_ENV=$RAILS_ENVIRONMENT bundle exec clockwork lib/clock.rb >> /var/log/$NAME/clock-1.log 2>&1 & echo \$!" > $PIDDIR/clock.1.pid
+          # Set up the rvm environment
+          # [ -r /etc/profile.d/rvm.sh ] && . -r /etc/profile.d/rvm.sh
+          su - $USERNAME -c ". /etc/profile.d/rvm.sh; cd $DEPLOYDIR; export PORT=5000; RAILS_ENV=$RAILS_ENVIRONMENT bundle exec clockwork lib/clock.rb >> /var/log/$NAME/clock-1.log 2>&1 & echo \$!" > $PIDDIR/clock.1.pid
         fi
     
   
@@ -71,7 +74,7 @@ do_start()
         if [ $RUNNING -eq 0 ]; then
           log_daemon_msg "$WORKER_DESC already running"
         else
-          su - $USERNAME -c "cd $DEPLOYDIR; export PORT=5100; RAILS_ENV=$RAILS_ENVIRONMENT bundle exec rake jobs:work >> /var/log/$NAME/worker-1.log 2>&1 & echo \$!" > $PIDDIR/worker.1.pid
+          su - $USERNAME -c ". /etc/profile.d/rvm.sh; cd $DEPLOYDIR; export PORT=5100; RAILS_ENV=$RAILS_ENVIRONMENT bundle exec rake jobs:work >> /var/log/$NAME/worker-1.log 2>&1 & echo \$!" > $PIDDIR/worker.1.pid
         fi
 
 }
