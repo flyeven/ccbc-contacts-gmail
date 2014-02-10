@@ -104,8 +104,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
-# TODO: only go back 1 day, 7 is for testing    
-    since = user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 7).strftime("%F")
+    since = user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
 
     ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since, option_set?(options, 'inactive'))
     #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
@@ -224,19 +223,22 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
             nc.content << "Anniversary: " + DateTime.parse(i.anniversary).strftime("%B %e, %Y") + "\n"
           end
 
-          if i.family_position == "Primary Contact" or i.family_position == "Spouse"
-            # load all family relations
-            nc.content << "\nFamily Members:\n" if !i.family_members["family_member"].empty?
-            i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
-              nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
-            end unless i.family_members.blank?
-          else
-            # just load primary contact
-            i.family_members["family_member"].each do |data|
-              if data["family_position"] == "Primary Contact"
-                nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
-              end
-            end unless i.family_members.blank?
+          # indicate family members or primary contact
+          if i.family_members
+            if i.family_position == "Primary Contact" or i.family_position == "Spouse"
+              # load all family relations
+              nc.content << "\nFamily Members:\n"
+              i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
+                nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
+              end unless i.family_members.blank?
+            else
+              # just load primary contact
+              i.family_members["family_member"].each do |data|
+                if data["family_position"] == "Primary Contact"
+                  nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+                end
+              end unless i.family_members.blank?
+            end
           end
 
           # load significant events
