@@ -3,7 +3,32 @@
 
 <%= render partial: "easy_steps" %>
 
-<p>This step will provide us access to individual member information and allow us to determine how to respect their privacy settings.</p>
+<p>This step will provide us access to individual member information and allow us to determine how to respect their privacy settings. Not at <%= CCB_SUBDOMAIN %>?  <a href="javascript:showApiInfo()">Click here</a> to enter API connection information for your site.</p>
 
-<%= link_to "Step 2 - Let's Find You &nbsp; <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, verify_path, class: 'btn btn-success btn-default btn-lg',
-disable_with: "Searching... <i class='fa fa-spin fa-spinner'></i>".html_safe  %>
+<%= form_tag(verify_path, autocomplete: :off) do %>
+
+  <div id="api_info" class="hidden bg-warning">
+    <p>Please enter your API connection information below.  It will be encrypted.  If you are uncomfortable with this, you could create a temporary API account that has read-only access.  You can also look at the source code for this application at https://github.com/mfrederickson/ccb-contacts-api.</p>
+
+    <div class="row">
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">CCB Subdomain</label>
+        <input type="text" class="form-control" name="ccb_subdomain" placeholder="CCB Subdomain">
+      </div>
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">API Username</label>
+        <input type="text" class="form-control" name="api_username" placeholder="API Username">
+      </div>
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">API Password</label>
+        <input type="password" class="form-control" name="api_password" placeholder="API Password">
+      </div>
+    </div>
+  </div>
+
+  <%= button_tag("Step 2 - Let's Find You &nbsp; <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe,
+    type: 'submit',
+    class: 'btn btn-success btn-default btn-lg',
+    disable_with: "Searching... <i class='fa fa-spin fa-spinner'></i>".html_safe) %>
+
+<% end %>

@@ -91,19 +91,65 @@ class WelcomesController < ApplicationController
     @connect_status = "success"
     @verify_status = "danger"
 
-    Importer.initialize_ccb_api(@user.subdomain)
-    @ccb_individuals = ChurchCommunityBuilder::Search.search_for_person({email: @user.email, include_inactive: false})
-    if @ccb_individuals.empty?
-      flash.now[:alert] = "No individual at your ccb site could be found with that email address."
-# TODO: provide user ability to try against a different ccb site    
-    elsif @ccb_individuals.count > 1
-      flash.now[:alert]  = "Too many individuals at your ccb site matched that email address."
+    # load defaults
+    ccb_subdomain = CCB_SUBDOMAIN
+    api_username = CCB_USERNAME
+    api_password = CCB_PASSWORD
+
+    if !params[:ccb_subdomain].empty? and !params[:api_username].empty? and !params[:api_password].empty?
+      # try specified credentials
+      ccb_subdomain = params[:ccb_subdomain]
+      api_username = params[:api_username]
+      api_password = params[:api_password]
     else
+      # use user's settings, if any
+      if !@user.ccb_config_id.blank?
+        ccb_config = CcbConfig.find(@user.ccb_config_id)
+        if ccb_config
+          ccb_subdomain = ccb_config.subdomain
+          api_username = ccb_config.api_user
+          api_password = ccb_config.api_password
+        end
+      end
+    end
+    Importer.initialize_ccb_api(ccb_subdomain, api_username, api_password)
+
+    begin
+      connection_error = false
+      @ccb_individuals = ChurchCommunityBuilder::Search.search_for_person({email: @user.email, include_inactive: false})
+    rescue ChurchCommunityBuilderExceptions::UnableToConnectToChurchCommunityBuilder => e
+      connection_error = true
+    rescue ChurchCommunityBuilderExceptions::InvalidApiCredentials => e
+      connection_error = true
+    end
+
+    if connection_error
+      flash.now[:alert] = "Unable to connect to your ccb site (#{ccb_subdomain}) with the credentials provided.  Please check them and try again."
+    elsif @ccb_individuals.empty?
+      flash.now[:alert] = "No individual at your ccb site (#{ccb_subdomain}) could be found with that email address."
+    elsif @ccb_individuals.count > 1
+      flash.now[:alert]  = "Too many individuals at your ccb site (#{ccb_subdomain}) matched that email address."
+    else
+      if ccb_config.blank?
+        # we need to lookup and save the credentials
+        CcbConfig.where(subdomain: ccb_subdomain).each do |cc|
+          if cc[:api_user] == api_username and cc[:api_password] == api_password
+            ccb_config = cc
+            break
+          end
+        end
+        if ccb_config.blank?
+          ccb_config = CcbConfig.create({subdomain: ccb_subdomain, api_user: api_username, api_password: api_password })
+        end
+      end
       @user.ccb_id = @ccb_individuals.first.id
+      @user.ccb_config_id = ccb_config.id
       @user.save
 
       redirect_to :verified
     end
+
+    @ccb_subdomain = ccb_subdomain
   end
 
   # STEP 3.5 - VERIFIED, NEXT - IMPORT
@@ -149,7 +195,6 @@ class WelcomesController < ApplicationController
 
   # STEP 4.5 - IMPORTING
   def importing
-breakhere    
   end
 
   # step 5 - IMPORTED

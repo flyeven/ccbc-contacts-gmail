@@ -8,7 +8,7 @@ CcbcContactsGmail::Application.routes.draw do
   get 'connect', to: 'welcomes#connect', as: :connect
   get 'connected', to: 'welcomes#connected', as: :connected
 
-  get 'verify', to: 'welcomes#verify', as: :verify
+  post 'verify', to: 'welcomes#verify', as: :verify
   get 'verified', to: 'welcomes#verified', as: :verified
 
   post 'import', to: 'welcomes#import', as: :import

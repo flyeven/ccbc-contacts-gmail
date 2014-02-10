@@ -1,12 +1,38 @@
 <%# verification failed %>
 
-<p class="alert alert-warning">We were unable to verify your access to <%= CCB_SUBDOMAIN %>.ccbchurch.com using your email address of <%= @user.email %>.  It might be that these two emails don't match-- if that is the case, you may either update your ccb record to
-reflect your google email address, or you can register the email address you have on record at ccb with your google mail account.</p>
-
-<%# should we allow public access to public listed info? %>
+<% # dont display credentials error if could not connect %>
+<% if flash[:alert].empty? %>
+<p class="alert alert-warning">We were unable to verify your account at <%= @ccb_subdomain %>.ccbchurch.com using your email address of <%= @user.email %></p>
+<% end %>
 
 <%= render partial: "easy_steps" %>
 
-<p>Click the button below when you are ready to try again.</p>
+<p>This step will provide us access to individual member information and allow us to determine how to respect their privacy settings. Not at <%= CCB_SUBDOMAIN %>?  <a href="javascript:showApiInfo()">Click here</a> to enter API connection information for your site.</p>
 
-<%= link_to "Retry Step 2 - Let's Find You &nbsp; <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe, verify_path, class: 'btn btn-success btn-default btn-lg' %>
+<%= form_tag(verify_path, autocomplete: :off) do %>
+
+  <div id="api_info" class="<%= (@ccb_subdomain != CCB_SUBDOMAIN ? 'show' : 'hidden') %> bg-warning">
+    <p>Please enter your API connection information below.  It will be encrypted.  If you are uncomfortable with this, you could create a temporary API account that has read-only access.  You can also look at the source code for this application at https://github.com/mfrederickson/ccb-contacts-api.</p>
+
+    <div class="row">
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">CCB Subdomain</label>
+        <input type="text" class="form-control" name="ccb_subdomain" placeholder="CCB Subdomain">
+      </div>
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">API Username</label>
+        <input type="text" class="form-control" name="api_username" placeholder="API Username">
+      </div>
+      <div class="form-group col-md-3">
+        <label class="sr-only" for="api_subdomain">API Password</label>
+        <input type="password" class="form-control" name="api_password" placeholder="API Password">
+      </div>
+    </div>
+  </div>
+
+  <%= button_tag("Retry Step 2 - Let's Find You &nbsp; <i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>".html_safe,
+    type: 'submit',
+    class: 'btn btn-success btn-default btn-lg',
+    disable_with: "Searching... <i class='fa fa-spin fa-spinner'></i>".html_safe) %>
+
+<% end %>

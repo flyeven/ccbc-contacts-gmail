@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mfrederickson/church-community-builder-api-ruby
-  revision: bfdaf4b99c9c227ed38f746244d90db06ed7fe76
+  revision: d6cd6d3c5ee912f4acd1c4a9fc4ffbea449d42cc
   specs:
     church-community-builder (0.1.6)
       typhoeus (= 0.6.6)
@@ -42,10 +42,9 @@ GEM
       thread_safe (~> 0.1)
       tzinfo (~> 0.3.37)
     addressable (2.3.5)
-    airbrake (3.1.12)
-      activesupport
+    airbrake (3.1.15)
       builder
-      json
+      multi_json
     arel (4.0.2)
     atomic (1.1.14)
     attr_encrypted (1.3.1)
@@ -75,7 +74,7 @@ GEM
     capistrano-rvm (0.1.1)
       capistrano (~> 3.0)
       sshkit (~> 1.2)
-    clockwork (0.7.0)
+    clockwork (0.7.1)
       activesupport
       tzinfo (~> 0.3.35)
     coderay (1.1.0)

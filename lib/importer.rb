@@ -55,7 +55,6 @@ class Importer
 
 
 
-# extract all this to a class so we can schedule via dj
   # returns counts added, updated, deleted, and skipped
   def self.perform_import(user)
     # validate parameter
@@ -72,7 +71,8 @@ class Importer
     #google_api_client.authorization.fetch_access_token!
 
     # initialize the ccb api
-    subdomain = initialize_ccb_api(user.subdomain)
+    ccb_config = CcbConfig.find(user.ccb_config_id)
+    subdomain = initialize_ccb_api(ccb_config.subdomain, ccb_config.api_user, ccb_config.api_password)
 
     # identify the gmail groups 
     # ccb_group = "#{subdomain}.ccb" group 
@@ -112,6 +112,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 # TODO: only load massive list if more than x in the ccb_individuals, otherwise use the
 # individuals#load_groups to get them
     ccb_individual_groups = ChurchCommunityBuilder::Search.individual_groups
+    ccb_individual_significant_events = ChurchCommunityBuilder::Search.individual_significant_events
 
     count_added = 0
     count_updated = 0
@@ -243,9 +244,10 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
           # load significant events
           if option_set?(options, 'significant_events')
-            if !i.load_significant_events.blank?
+            ise = ccb_individual_significant_events.find_by_id(i.id)
+            if ise and !ise.significant_events.empty?
               nc.content << "\nSignificant Events:\n"
-              i.significant_events.each do |e|
+              ise.significant_events.each do |e|
                 nc.content << "-#{e[:name]} #{DateTime.parse(e[:date]).strftime("%B %e, %Y")}\n"
               end
             end
@@ -286,17 +288,16 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           # add or update the contact record
           nc.data = data
           if nc.id.nil?
-Rails.logger.debug("adding #{i.full_name}")
+            Rails.logger.debug("adding #{i.full_name}")
             nc = contacts_api_client.create!(nc)
             count_added += 1
           else
-Rails.logger.debug("updating #{i.full_name}")
+            Rails.logger.debug("updating #{i.full_name}")
             nc = contacts_api_client.update!(nc)
             count_updated += 1
           end
 
   # TODO: batch all this stuff
-  # TODO: support recurring
 
           # if there is no contact photo yet or we are allowed to overwrite the photo
           if nc.photo_etag.blank? or option_set?(options, "replace_photo")
@@ -316,7 +317,7 @@ Rails.logger.debug("updating #{i.full_name}")
                 contacts_api_client.update_photo!(nc, results.body, "image/*")
               rescue => e
 # TODO: we will want to report on this somehow
-Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
+                Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
               end
             else
               # should we wipeout the existing image if the user cleared theirs out at ccb?
@@ -388,25 +389,10 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
     end
   end
 
-  # Initializes the ccb_api with the credentials for the specified or default subdomain.
-  # returns subdomain that was initialized
-  def self.initialize_ccb_api(subdomain)
-    api_subdomain = CCB_SUBDOMAIN
-    api_user = CCB_USERNAME
-    api_password = CCB_PASSWORD
-
-    if subdomain
-      ccb_config = CcbConfig.find_by(subdomain: subdomain)
-      if ccb_config
-        api_subdomain = ccb_config.subdomain
-        api_user = ccb_config.api_user
-        api_password = ccb_config.api_password
-      end
-    end
-    #ChurchCommunityBuilder::Api.connect(CCB_USERNAME, CCB_PASSWORD, CCB_SUBDOMAIN)
-    ChurchCommunityBuilder::Api.connect(api_user, api_password, api_subdomain)
-
-    api_subdomain
+  # Initializes the ccb_api with the credentials for the specified subdomain.
+  def self.initialize_ccb_api(subdomain, user, password)
+    ChurchCommunityBuilder::Api.connect(user, password, subdomain)
+    subdomain
   end
 
   def self.run_recurring_updates
