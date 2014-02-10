@@ -9,3 +9,6 @@
 
 VERSION="1.0.0"
 APP_NAME="ccbc-contacts-gmail"
+
+# http://stackoverflow.com/questions/1047943/best-way-to-version-a-rails-app/6178378#6178378
+APP_VERSION=`git describe --always --tags` unless defined? APP_VERSION

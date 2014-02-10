@@ -149,6 +149,7 @@ class WelcomesController < ApplicationController
 
   # STEP 4.5 - IMPORTING
   def importing
+breakhere    
   end
 
   # step 5 - IMPORTED

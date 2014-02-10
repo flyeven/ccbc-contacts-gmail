@@ -1,3 +1,6 @@
+require 'google/api_client'
+require 'google/api_client/client_secrets'
+
 class Importer
 
   IMPORT_OPTIONS = {
@@ -66,7 +69,7 @@ class Importer
     if google_api_client.authorization.nil? 
       raise ArgumentException, "authorization information is missing"
     end
-# TODO: might need to       client.authorization.fetch_access_token!
+    #google_api_client.authorization.fetch_access_token!
 
     # initialize the ccb api
     subdomain = initialize_ccb_api(user.subdomain)
@@ -223,7 +226,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
           if i.family_position == "Primary Contact" or i.family_position == "Spouse"
             # load all family relations
-            nc.content << "\nFamily Members:\n"
+            nc.content << "\nFamily Members:\n" if !i.family_members["family_member"].empty?
             i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
               nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
             end unless i.family_members.blank?
@@ -402,6 +405,20 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
     ChurchCommunityBuilder::Api.connect(api_user, api_password, api_subdomain)
 
     api_subdomain
+  end
+
+  def self.run_recurring_updates
+    User.where(recurring: true).each do |user|
+      begin
+        Rails.logger.debug("running import for #{user.name} since #{user.since}")
+        Importer.perform_import(user)
+# TODO: send email upon completion, if desired        
+      rescue => e
+        Rails.logger.error("scheduled import for #{user.name} failed.")
+        Rails.logger.error(e.message)
+        Rails.logger.error(e.backtrace.join("\n"))
+      end
+    end
   end
 
 end
