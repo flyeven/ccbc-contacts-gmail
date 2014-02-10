@@ -6,9 +6,10 @@ class ApplicationController < ActionController::Base
 #TODO Catch a GContacts::Unauthorized and redirect to reauthorization
 
   rescue_from Exception do |exception|
-    redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + exception.message + "]"
+    notify_airbrake exception
     Rails.logger.error(exception.inspect)
     Rails.logger.error(exception.backtrace.join("\n"))
+    redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + exception.message + "]"
   end if Rails.env.downcase == "production"
 
   rescue_from ActionController::InvalidAuthenticityToken, with: :timed_out_handler

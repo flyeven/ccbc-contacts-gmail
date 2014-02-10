@@ -414,6 +414,7 @@ Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
         Importer.perform_import(user)
 # TODO: send email upon completion, if desired        
       rescue => e
+        Airbrake.notify_or_ignore e if Rails.env.production?
         Rails.logger.error("scheduled import for #{user.name} failed.")
         Rails.logger.error(e.message)
         Rails.logger.error(e.backtrace.join("\n"))
