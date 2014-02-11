@@ -68,7 +68,7 @@ class Importer
     if google_api_client.authorization.nil? 
       raise ArgumentException, "authorization information is missing"
     end
-    #google_api_client.authorization.fetch_access_token!
+    google_api_client.authorization.fetch_access_token!
 
     # initialize the ccb api
     ccb_config = CcbConfig.find(user.ccb_config_id)
