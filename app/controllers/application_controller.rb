@@ -3,13 +3,16 @@ class ApplicationController < ActionController::Base
   # For APIs, you may want to use :null_session instead.
   protect_from_forgery with: :exception
 
-#TODO Catch a GContacts::Unauthorized and redirect to reauthorization
-
   rescue_from Exception do |exception|
     notify_airbrake exception
     Rails.logger.error(exception.inspect)
     Rails.logger.error(exception.backtrace.join("\n"))
-    redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + exception.message + "]"
+    message = exception.message
+    if message.length > 1024
+      # too big will blow the cookie size limit
+      message = "Please see the error log for additional information."
+    end
+    redirect_to :root, alert: "Sorry, we encountered a problem and have returned you to the home page to try again. [" + message + "]"
   end if Rails.env.downcase == "production"
 
   rescue_from ActionController::InvalidAuthenticityToken, with: :timed_out_handler
