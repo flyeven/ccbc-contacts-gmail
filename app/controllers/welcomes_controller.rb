@@ -53,10 +53,8 @@ class WelcomesController < ApplicationController
       #verified = json_results["verified_email"]
       #picture = json_results["picture"]
 
-      users = User.where(email: email)
-      if !users.blank?
-        user = users.first
-      else
+      user = User.find_by(email: email)
+      if user.blank?
         user = User.new
         user.email = email
         user.name = name
@@ -83,7 +81,6 @@ class WelcomesController < ApplicationController
     end
     @connect_status = "success"
     @verify_status = "info"
-# TODO: provide user ability to try against a different ccb site    
   end
 
   # STEP 3 - AUTHENTICATE WITH CCB

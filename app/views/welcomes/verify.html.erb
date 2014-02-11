@@ -12,7 +12,7 @@
 <%= form_tag(verify_path, autocomplete: :off) do %>
 
   <div id="api_info" class="<%= (@ccb_subdomain != CCB_SUBDOMAIN ? 'show' : 'hidden') %> bg-warning">
-    <p>Please enter your API connection information below.  It will be encrypted.  If you are uncomfortable with this, you could create a temporary API account that has read-only access.  You can also look at the source code for this application at https://github.com/mfrederickson/ccb-contacts-api.</p>
+    <p>Please enter your API connection information below.  It will be encrypted.  If you are uncomfortable with this, you could create a temporary API account that has read-only access to the following services individual_profiles, individual_groups, and individual_significant_events.  You can also look at the source code for this application at https://github.com/mfrederickson/ccb-contacts-api.</p>
 
     <div class="row">
       <div class="form-group col-md-3">
