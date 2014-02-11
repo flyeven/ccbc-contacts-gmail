@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/mfrederickson/google-contacts
-  revision: f5f75060effe782f165c48339970115999963838
+  revision: 007820b9238a1ea90c2f5019ed5117979b370a95
   specs:
     google-contacts (0.0.1)
       nokogiri (~> 1.6.0)
