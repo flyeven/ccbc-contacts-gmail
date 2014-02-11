@@ -49,6 +49,16 @@ namespace :deploy do
     end
   end
 
+  # %w[start stop restart].each do |command|
+  #   desc "#{command} ccbc-contacts-gmail background services"
+  #   task command.to_sym do
+  #     on roles(:app) do #except: { :no_release => true } do
+  #       # start, stop, or restart the services if the service control script exists
+  #       run "if [ -L /etc/init.d/ccbc-contacts-gmail ]; then #{sudo} invoke-rc.d ccbc-contacts-gmail #{command}; fi"
+  #     end
+  #   end
+  # end
+
   after :restart, :clear_cache do
     on roles(:web), in: :groups, limit: 3, wait: 10 do
       # Here we can do anything such as:
@@ -73,6 +83,43 @@ namespace :deploy do
   #     end
   #   end
   # end
+
+  desc "install ccbc-contacts-gmail background services"
+  task :setup_service do
+    on roles(:app) do
+      # Must occur after code is deployed and symlink to current is created
+      # If the service control script does not yet exist, but the script is in our app directory
+      # then we link it (to create the service control script) and make sure it's executable
+      # and not world-writable.  
+      # Otherwise if the service control script already exists, then the script in the app directory
+      # may have just been replaced, so make sure it's permissions are like we said.
+      run "if [ ! -L /etc/init.d/ccbc-contacts-gmail -a -f #{current_path}/ccbc-contacts-gmail ]; then 
+        #{sudo} ln -nfs #{current_path}/ccbc-contacts-gmail /etc/init.d/ccbc-contacts-gmail && 
+        #{sudo} chmod +x #{current_path}/ccbc-contacts-gmail && 
+        #{sudo} chmod o-w #{current_path}/ccbc-contacts-gmail && 
+        #{sudo} update-rc.d ccbc-contacts-gmail defaults ; 
+        elif [ -f #{current_path}/ccbc-contacts-gmail ]; then 
+        #{sudo} chmod +x #{current_path}/ccbc-contacts-gmail && 
+        #{sudo} chmod o-w #{current_path}/ccbc-contacts-gmail ;
+        fi"
+    end
+  end
+
+  desc "remove ccbc-contacts-gmail background services"
+  task :remove_service do
+    on roles(:app) do
+      # if the service control script exists, then remove it and unschedule it
+      run "if [ -L /etc/init.d/ccbc-contacts-gmail ]; then 
+        #{sudo} unlink /etc/init.d/ccbc-contacts-gmail &&
+        #{sudo} update-rc.d ccbc-contacts-gmail remove ;
+        fi"
+    end
+  end
+
+  # before "deploy:remove_service", "deploy:stop"   # stop the service before we remove it
+  # before "deploy:update_code", "deploy:stop"      # stop the service before we update the code
+  # after "deploy:restart", "deploy:setup_service"  # reinstall/reset perms on service after code changes
+  # after "deploy:setup_service", "deploy:start"    # restart the service after its been set up
 end
 
 # preserve the nondeployed app config
