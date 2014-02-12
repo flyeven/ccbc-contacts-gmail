@@ -1,4 +1,4 @@
-#ccbc-contacts-gmail
+#CCB Individuals to Google Contacts
 
 Push ccb individuals' contact information to your gmail contacts.
 
