@@ -69,6 +69,12 @@ class Importer
       raise ArgumentException, "authorization information is missing"
     end
     #google_api_client.authorization.fetch_access_token!
+    if google_api_client.authorization.expired?
+      Rails.logger.debug("client expired, refreshing token")
+      google_api_client.authorization.refresh!
+      user.authorization = google_api_client.authorization
+      user.save
+    end
 
     # initialize the ccb api
     ccb_config = CcbConfig.find(user.ccb_config_id)
