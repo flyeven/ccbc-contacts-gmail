@@ -78,3 +78,5 @@ gem 'clockwork'
 gem 'mysql2'
 gem 'daemons'
 gem 'airbrake'
+
+gem 'sprockets', '2.10.1'
