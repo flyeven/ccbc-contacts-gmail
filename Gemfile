@@ -28,7 +28,7 @@ gem 'jquery-rails'
 gem 'jbuilder', '~> 1.2'
 
 gem 'bootstrap-sass'
-gem 'font-awesome-sass'
+gem 'font-awesome-sass', '4.0.2'
 
 group :doc do
   # bundle exec rake doc:rails generates the API under doc/api.
