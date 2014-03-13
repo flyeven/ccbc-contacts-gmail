@@ -124,6 +124,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
     count_updated = 0
     count_deleted = 0
     count_skipped = 0
+    count_errored = 0
     options = user.options
 
     # for each ccb individual add to the gmail group if possible
@@ -294,13 +295,24 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           # add or update the contact record
           nc.data = data
           if nc.id.nil?
-            Rails.logger.debug("adding #{i.full_name}")
-            nc = contacts_api_client.create!(nc)
-            count_added += 1
+            begin
+              nc = contacts_api_client.create!(nc)
+              count_added += 1
+            rescue => e
+              Rails.logger.error("adding #{i.full_name} - #{e.message}")
+              Rails.logger.error("#{nc.to_yaml}")
+              count_errored += 1
+            end
           else
             Rails.logger.debug("updating #{i.full_name}")
-            nc = contacts_api_client.update!(nc)
-            count_updated += 1
+            begin
+              nc = contacts_api_client.update!(nc)
+              count_updated += 1
+            rescue => e
+              Rails.logger.error("updating #{i.full_name} - #{e.message}")
+              Rails.logger.error("#{nc.to_yaml}")
+              count_errored += 1
+            end
           end
 
   # TODO: batch all this stuff
@@ -339,7 +351,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
     user.since = Date.today
     user.save
 
-    return count_added, count_updated, count_deleted, count_skipped
+    return count_added, count_updated, count_deleted, count_skipped, count_errored
   end
 
 
