@@ -17,9 +17,11 @@ class WelcomesController < ApplicationController
 
   # STEP 1 - CONNECT - AUTHENTICATE/AUTHORIZE GOOGLE
   def connect
-    access_type = "online"
+    #access_type = "online"
+    access_type = ""
     if params.include?(:recur) and params[:recur] == "1"
-      access_type = "offline"
+      #access_type = "offline"
+      access_type = "&access_type=offline"
     end
     client_secrets = Google::APIClient::ClientSecrets.load('config/client_secrets.json')
     redirect_to client_secrets.authorization_uri.to_s + 
@@ -28,8 +30,9 @@ class WelcomesController < ApplicationController
       "&redirect_uri=#{oauth2callback_url}" +
       "&client_id=#{client_secrets.client_id}" + 
       "&approval_prompt=#{GAPI_APPROVAL_PROMPT}" +
-      "&access_type=#{access_type}",
+      "#{access_type}",
       status: 303
+      #"&access_type=#{access_type}",
   end
 
   # STEP 1.5 - STORE AUTHORIZATION, REDIRECT TO CONNECTED
