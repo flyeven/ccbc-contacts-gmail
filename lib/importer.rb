@@ -238,6 +238,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
               nc.content << "\nFamily Members:\n"
               i.family_members["family_member"].sort_by {|e| e["individual"]["content"]}.each do |data|
                 nc.content << "-#{data["individual"]["content"]} (#{data["family_position"]})\n"
+                # use data["individual"]["id"] to look up the family member
               end unless i.family_members.blank?
             else
               # just load primary contact
@@ -275,9 +276,13 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 # TODO: load other notes options data: passions, skills and abilities, etc.
 
 
+          # let people know how old the entry is
+          nc.content << "\n[from ccb as of #{i.modified.to_date.strftime('%m/%d/%y')}]"
+
   # TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
+  # use i.family["id"] to get family info
           data = {
-            "gd:name" => { "gd:fullName" => i.full_name },
+            "gd:name" => { "gd:fullName" => i.full_name.sub(' & ', ' and ') },
             "gd:email" => emails,
             "gd:phoneNumber" => phones,
             "gd:structuredPostalAddress" => addresses,
@@ -328,11 +333,11 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
             # if we have a valid photo from ccb then get it
             if !stock_image?(image_url)
               # fetch the image from ccb
-              results = raw_http_request(i.image)
+              results = raw_http_request(image_url)
               begin
                 # upload it to the gmail contact record, but sometimes google will prevent this
                 # i think they do that when their email is associated with a google plus account
-                contacts_api_client.update_photo!(nc, results.body, "image/*")
+                qqq = contacts_api_client.update_photo!(nc, results.body, "image/*")
               rescue => e
 # TODO: we will want to report on this somehow
                 Rails.logger.error("could not update photo for #{i.full_name} #{e.message}")
@@ -368,9 +373,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
   # check to see if the image is a stock_image (or empty)
   def self.stock_image?(image_url)
-    results = image_url.blank?
-    results = results or File.basename(image_url) == "profile-default.gif" or 
-      !image_url.include?("?") or File.basename(image_url) == "group-sm-default.gif"
+    results = image_url.blank? or image_url.include? "default"
+    # results = results or File.basename(image_url) == "profile-default.gif" or 
+    #   !image_url.include?("?") or File.basename(image_url) == "group-sm-default.gif"
   end
 
   def self.present_and_public?(individual, key)
