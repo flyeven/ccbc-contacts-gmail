@@ -50,10 +50,11 @@ end
 group :development do
   gem 'better_errors'
   gem 'binding_of_caller'
-  gem 'capistrano', '~> 3.1.0'
+  gem 'capistrano', '~> 3.2'
   gem 'capistrano-rails'
   gem 'capistrano-bundler'
   gem 'capistrano-rvm'
+  gem 'capistrano-passenger'
   gem 'quiet_assets'
   gem 'rails_layout'
   gem 'thin'
