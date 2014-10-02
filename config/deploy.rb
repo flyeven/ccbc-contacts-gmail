@@ -4,9 +4,6 @@
 # 2. set up your deploy/destination.rb file.
 # 3. run:  cap destination deploy
 
-# config valid only for Capistrano 3.1
-lock '3.1.0'
-
 set :user, "deploy"
 
 set :ssh_options, {
@@ -36,19 +33,10 @@ set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public
 # set :keep_releases, 5
 
 #after "deploy:assets:symlink", "custom:config"
-after 'deploy:publishing', 'deploy:restart'
 
 before 'deploy:check:linked_files', 'custom:upload_secrets'
 
 namespace :deploy do
-  desc 'Restart application'
-  task :restart do
-    on roles(:app), in: :sequence, wait: 5 do
-      # Your restart mechanism here, for example:
-      execute :touch, release_path.join('tmp/restart.txt')
-    end
-  end
-
   # %w[start stop restart].each do |command|
   #   desc "#{command} ccbc-contacts-gmail background services"
   #   task command.to_sym do
@@ -59,14 +47,14 @@ namespace :deploy do
   #   end
   # end
 
-  after :restart, :clear_cache do
-    on roles(:web), in: :groups, limit: 3, wait: 10 do
-      # Here we can do anything such as:
-      # within release_path do
-      #   execute :rake, 'cache:clear'
-      # end
-    end
-  end
+  # after :restart, :clear_cache do
+  #   on roles(:web), in: :groups, limit: 3, wait: 10 do
+  #     # Here we can do anything such as:
+  #     # within release_path do
+  #     #   execute :rake, 'cache:clear'
+  #     # end
+  #   end
+  # end
 
   after :finishing, 'deploy:cleanup'
 
@@ -93,14 +81,14 @@ namespace :deploy do
       # and not world-writable.  
       # Otherwise if the service control script already exists, then the script in the app directory
       # may have just been replaced, so make sure it's permissions are like we said.
-      run "if [ ! -L /etc/init.d/ccbc-contacts-gmail -a -f #{current_path}/ccbc-contacts-gmail ]; then 
-        #{sudo} ln -nfs #{current_path}/ccbc-contacts-gmail /etc/init.d/ccbc-contacts-gmail && 
-        #{sudo} chmod +x #{current_path}/ccbc-contacts-gmail && 
-        #{sudo} chmod o-w #{current_path}/ccbc-contacts-gmail && 
-        #{sudo} update-rc.d ccbc-contacts-gmail defaults ; 
+      execute :sudo, "if [ ! -L /etc/init.d/ccbc-contacts-gmail -a -f #{current_path}/ccbc-contacts-gmail ]; then 
+         ln -nfs #{current_path}/ccbc-contacts-gmail /etc/init.d/ccbc-contacts-gmail && 
+         chmod +x #{current_path}/ccbc-contacts-gmail && 
+         chmod o-w #{current_path}/ccbc-contacts-gmail && 
+         update-rc.d ccbc-contacts-gmail defaults ; 
         elif [ -f #{current_path}/ccbc-contacts-gmail ]; then 
-        #{sudo} chmod +x #{current_path}/ccbc-contacts-gmail && 
-        #{sudo} chmod o-w #{current_path}/ccbc-contacts-gmail ;
+         chmod +x #{current_path}/ccbc-contacts-gmail && 
+         chmod o-w #{current_path}/ccbc-contacts-gmail ;
         fi"
     end
   end
@@ -109,9 +97,9 @@ namespace :deploy do
   task :remove_service do
     on roles(:app) do
       # if the service control script exists, then remove it and unschedule it
-      run "if [ -L /etc/init.d/ccbc-contacts-gmail ]; then 
-        #{sudo} unlink /etc/init.d/ccbc-contacts-gmail &&
-        #{sudo} update-rc.d ccbc-contacts-gmail remove ;
+      execute :sudo, "if [ -L /etc/init.d/ccbc-contacts-gmail ]; then 
+         unlink /etc/init.d/ccbc-contacts-gmail &&
+         update-rc.d ccbc-contacts-gmail remove ;
         fi"
     end
   end
