@@ -56,6 +56,16 @@ class Importer
 
 
   # returns counts added, updated, deleted, and skipped
+  #
+  # 10/2/14 The way this needs to work now is to pull back all 
+  # individuals changed since the last time the ccb_config source
+  # was queried and add/update them in the individuals table.  Then
+  # we need to add into the individuals array to process all of the
+  # individuals family members (because their notes will possibly change,
+  # especially for parents, and phone numbers possible for kids).
+  # This is why we started storing the data locally so that we would
+  # not hit the source ccb so heavily (or repeatedly for multiple users
+  # at the same church).
   def self.perform_import(user)
     # validate parameter
     if user.nil?
@@ -110,13 +120,14 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # get all the individuals that have changed since the last time we updated
     # this user (user.since), overlap a little just to be safe.
-    since = user.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (user.since - 1).strftime("%F")
+    since = ccb_config.since.nil? ? Date.new(1980, 1, 1).strftime("%F") : (ccb_config.since - 1).strftime("%F")
 
     ccb_individuals = ChurchCommunityBuilder::Search.all_individual_profiles(since, option_set?(options, 'inactive'))
     #ccb_individuals = [ChurchCommunityBuilder::Individual.load_by_id(382)]
 
 # TODO: only load massive list if more than x in the ccb_individuals, otherwise use the
 # individuals#load_groups to get them
+# TODO: we should probably get these using the since date also and store them also
     ccb_individual_groups = ChurchCommunityBuilder::Search.individual_groups
     ccb_individual_significant_events = ChurchCommunityBuilder::Search.individual_significant_events
 
@@ -129,6 +140,17 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # for each ccb individual add to the gmail group if possible
     ccb_individuals.each do |i|
+
+      # if they don't exist then add them
+      local_individual = Individual.find_by(ccb_config_id: ccb_config.id, individual_id: i.id)
+      if local_individual.nil?
+        local_individual = Individual.create(ccb_config_id: ccb_config.id, 
+          individual_id: i.id, family_id: i.family_id, object_json: i)
+      else
+        local_individual.object_json = i
+        local_individual.save
+      end
+
       # find the corresponding gmail contacts record for this individual
       nc = find_contact(gmail_contacts, i.id)
 
@@ -355,6 +377,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
     # indicate when the user's ccb individuals were last imported
     user.since = Date.today
     user.save
+
+    ccb_config.since = Date.today
+    ccb_config.save
 
     return count_added, count_updated, count_deleted, count_skipped, count_errored
   end
