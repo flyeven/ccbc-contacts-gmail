@@ -165,8 +165,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
     family_queue = Hash.new
 
     # if merging spouse with Primary Contact then do it while scanning queue
-    # and add it to the skip hash
-    skip_these = Hash.new
+    # and add it to the spouse hash which we will use to skip the spouse and
+    # to merge the spouses disparate info 
+    spouses = Hash.new
 
     # load all the family members in also
     ccb_queue.each do |k, i|
@@ -185,10 +186,10 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
       end
 
       # only merge if the last names are the same and we've not already performed the merge
-      # (we know this by the spouse id being in the skip_these has already)
+      # (we know this by the spouse id being in the spouses hash has already)
       if option_set?(options, 'merge_spouse') and !primary_contact.nil? and !spouse.nil? and
-        primary_contact.last_name == spouse.last_name and !skip_these.has_key?(spouse.id.to_i)
-        skip_these[spouse.id.to_i] = "Merge Spouse setting"
+        primary_contact.last_name == spouse.last_name and !spouses.has_value?(spouse.id.to_i)
+        spouses[primary_contact.id.to_i] = spouse.id.to_i
 
         full_name = primary_contact.first_name + " and " + spouse.first_name + ' ' + primary_contact.last_name
 
@@ -197,9 +198,6 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
         elsif family_queue.has_key?(primary_contact.id.to_i)
           family_queue[primary_contact.id.to_i].full_name = full_name
         end
-
-# todo: merge addresses, phones, notes, etc. and identify which is whose (by first name? unless same
-# in which case I guess we should use first of pc and "spouse" for spouse)
       end
     end
 
@@ -209,8 +207,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # for each ccb individual add to the gmail group if possible
     ccb_queue.each do |k, i|
-      if skip_these.has_key?(k)  #skip this person if they are in the skip list
-Rails.logger.debug("skipping #{i.full_name} due to #{skip_these[k]}")        
+      if spouses.has_value?(k)  #skip this person if they are in the skip list
         next 
       end
 
@@ -245,43 +242,61 @@ Rails.logger.debug("skipping #{i.full_name} due to #{skip_these[k]}")
 
         # gather info that might be missing which may mean we want to exclude them
         addresses, emails, phones = [], [], []
-        emails << { "@rel" => "http://schemas.google.com/g/2005#other", "@address" => i.email, "@primary" => "true" } if !i.email.blank?
 
-        # set phones
+        # unique list of entries used to prevent duplicates
+        email_entries = []
         phone_entries = []
-        { "mobile" => "mobile_phone",
-          "main" => "contact_phone",
-          "work" => "work_phone",
-          "home" => "home_phone"
-        }.each do |type, key|
-          if present_and_public?(i, key)
-            if !phone_entries.include?(i.send(key))
-              phones << { "@rel" => "http://schemas.google.com/g/2005##{type}", "text" => i.send(key) } 
-              phone_entries << i.send(key)
-            end
-          end
-        end
-        phone_entries = nil
-
-        # set addresses
         address_entries = []
-        { 
-          "other" => "other_address",
-          "other" => "mailing_address",
-          "work" => "work_address",
-          "home" => "home_address"
-        }.each do |type, key|
-          line_1 = eval("i.#{key}.line_1") rescue nil
-          line_2 = eval("i.#{key}.line_2") rescue nil
 
-          if !line_1.blank? && !line_2.blank?  && present_and_public?(i, key)
-            if !address_entries.include?("#{line_1}:#{line_2}")
-              addresses << { "gd:formattedAddress" => line_1 + "\n" + line_2,
-                "@rel" => "http://schemas.google.com/g/2005##{type}" } 
-              address_entries << "#{line_1}:#{line_2}"
+        people = []
+        people << i
+        # prepare to glean info from spouse record also, if merging
+        if option_set?(options, 'merge_spouse') and spouses.has_key?(i.id)
+          people << ccb_queue[spouses[i.id]]
+        end
+
+        people.each do |i|
+          if !i.email.blank?
+            emails << { "@rel" => "http://schemas.google.com/g/2005#other", "@address" => i.email, "@primary" => (emails.length == 0).to_s } 
+          end
+
+          # set phones
+          { 
+            "home" => "home_phone",
+            "mobile" => "mobile_phone",
+            "main" => "contact_phone",
+            "work" => "work_phone"
+          }.each do |type, key|
+            if present_and_public?(i, key)
+              if !phone_entries.include?(i.send(key))
+                phones << { "@rel" => "http://schemas.google.com/g/2005##{type}", "text" => i.send(key) } 
+                phone_entries << i.send(key)
+              end
+            end
+          end
+
+          # set addresses
+          { 
+            "home" => "home_address",
+            "work" => "work_address",
+            "other" => "mailing_address",
+            "other" => "other_address"
+          }.each do |type, key|
+            line_1 = eval("i.#{key}.line_1") rescue nil
+            line_2 = eval("i.#{key}.line_2") rescue nil
+
+            if !line_1.blank? && !line_2.blank?  && present_and_public?(i, key)
+              if !address_entries.include?("#{line_1}:#{line_2}")
+                addresses << { "gd:formattedAddress" => line_1 + "\n" + line_2,
+                  "@rel" => "http://schemas.google.com/g/2005##{type}" } 
+                address_entries << "#{line_1}:#{line_2}"
+              end
             end
           end
         end
+
+        email_entries = nil
+        phone_entries = nil
         address_entries = nil
 
         if !option_set?(options, 'missing_info') and phones.empty? and emails.empty? and addresses.empty?
@@ -337,8 +352,7 @@ Rails.logger.debug("skipping #{i.full_name} due to #{skip_these[k]}")
               nc.content << "\nFamily Members:\n"
               i.family_members["family_member"].sort_by do |e| 
                 value = e["individual"]["content"]
-                value = "" if e["individual"]["family_position"] == "Primary Contact" or e["individual"]["family_position"] == "Spouse"
-Rails.logger.debug("family member sorting #{e["individual"]["content"]} becomes #{value}")                
+                value = "" if e["family_position"] == "Primary Contact" or e["family_position"] == "Spouse"
                 value
               end.each do |data|
                 # get the name and drop the last name if same
@@ -356,7 +370,7 @@ Rails.logger.debug("family member sorting #{e["individual"]["content"]} becomes 
                       d = Date.new(today.year, birthdate.month, birthdate.day)
                       age = d.year - birthdate.year - (d > today ? 1 : 0)
 
-                      age_info = "\n    birthday: #{birthdate.strftime('%b %-d')}, #{age} yrs."
+                      age_info = "\n    birthday: #{birthdate.strftime('%b %-d')}, age #{age}"
                     rescue => e
                       # could not convert date, partial date?
                       Rails.logger.error("problem preparing age_info - #{e}")
