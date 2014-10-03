@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20140210222622) do
+ActiveRecord::Schema.define(version: 20141002224620) do
 
   create_table "ccb_configs", force: true do |t|
     t.string   "subdomain"
@@ -19,6 +19,7 @@ ActiveRecord::Schema.define(version: 20140210222622) do
     t.string   "encrypted_api_password"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.date     "since"
   end
 
   create_table "delayed_jobs", force: true do |t|
@@ -36,6 +37,16 @@ ActiveRecord::Schema.define(version: 20140210222622) do
   end
 
   add_index "delayed_jobs", ["priority", "run_at"], name: "delayed_jobs_priority"
+
+  create_table "individuals", force: true do |t|
+    t.integer "ccb_config_id"
+    t.integer "individual_id"
+    t.text    "object_json"
+    t.integer "family_id"
+  end
+
+  add_index "individuals", ["ccb_config_id", "individual_id"], name: "index_individuals_on_ccb_config_id_and_individual_id"
+  add_index "individuals", ["family_id"], name: "index_individuals_on_family_id"
 
   create_table "users", force: true do |t|
     t.string   "name"
