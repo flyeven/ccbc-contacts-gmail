@@ -527,7 +527,10 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
   def self.present_and_public?(individual, key)
 # TODO: respect levels like friends, group members, etc.
     value = individual.send key if individual.respond_to?(key)
-    !value.blank? && (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "4" : true)
+
+# make everything available for now since only leadership is using this
+#    !value.blank? && (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "4" : true)
+    !value.blank? 
   end
 
   def self.find_contact(contacts, ccb_id)
