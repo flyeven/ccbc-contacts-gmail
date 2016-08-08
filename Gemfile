@@ -1,13 +1,12 @@
 source 'https://rubygems.org'
 
-# Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
 gem 'rails', '~> 4'
 
 # Use sqlite3 as the database for Active Record
 gem 'sqlite3'
 
 # Use SCSS for stylesheets
-gem 'sass-rails', '~> 4.0.0'
+gem 'sass-rails', '~> 5'
 
 # Use Uglifier as compressor for JavaScript assets
 gem 'uglifier', '>= 1.3.0'
@@ -25,7 +24,7 @@ gem 'jquery-rails'
 # gem 'turbolinks'
 
 # Build JSON APIs with ease. Read more: https://github.com/rails/jbuilder
-gem 'jbuilder', '~> 1.2'
+gem 'jbuilder', '~> 2'
 
 gem 'bootstrap-sass'
 gem 'font-awesome-sass', '4.0.2'
@@ -57,6 +56,7 @@ group :development do
   gem 'capistrano-passenger'
   gem 'quiet_assets'
   gem 'rails_layout'
+  gem 'spring'
   gem 'thin'
 end
 
@@ -79,6 +79,6 @@ gem 'clockwork'
 
 gem 'mysql2'
 gem 'daemons'
-gem 'airbrake'
+#gem 'airbrake'
 
-gem 'sprockets', '2.10.1'
+#gem 'sprockets', '2.10.1'
