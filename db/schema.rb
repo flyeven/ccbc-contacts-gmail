@@ -11,18 +11,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20141002224620) do
+ActiveRecord::Schema.define(version: 20160808001104) do
 
-  create_table "ccb_configs", force: true do |t|
+  create_table "ccb_configs", force: :cascade do |t|
     t.string   "subdomain"
     t.string   "encrypted_api_user"
     t.string   "encrypted_api_password"
     t.datetime "created_at"
     t.datetime "updated_at"
     t.date     "since"
+    t.string   "encrypted_api_user_iv"
+    t.string   "encrypted_api_password_iv"
   end
 
-  create_table "delayed_jobs", force: true do |t|
+  create_table "delayed_jobs", force: :cascade do |t|
     t.integer  "priority",   default: 0, null: false
     t.integer  "attempts",   default: 0, null: false
     t.text     "handler",                null: false
@@ -38,7 +40,7 @@ ActiveRecord::Schema.define(version: 20141002224620) do
 
   add_index "delayed_jobs", ["priority", "run_at"], name: "delayed_jobs_priority"
 
-  create_table "individuals", force: true do |t|
+  create_table "individuals", force: :cascade do |t|
     t.integer "ccb_config_id"
     t.integer "individual_id"
     t.text    "object_json"
@@ -48,7 +50,7 @@ ActiveRecord::Schema.define(version: 20141002224620) do
   add_index "individuals", ["ccb_config_id", "individual_id"], name: "index_individuals_on_ccb_config_id_and_individual_id"
   add_index "individuals", ["family_id"], name: "index_individuals_on_family_id"
 
-  create_table "users", force: true do |t|
+  create_table "users", force: :cascade do |t|
     t.string   "name"
     t.string   "email"
     t.string   "md5"
@@ -58,7 +60,7 @@ ActiveRecord::Schema.define(version: 20141002224620) do
     t.datetime "created_at"
     t.datetime "updated_at"
     t.integer  "ccb_id"
-    t.text     "options",       limit: 255
+    t.text     "options"
     t.integer  "ccb_config_id"
   end
 
