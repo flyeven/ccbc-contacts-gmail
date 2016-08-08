@@ -3,16 +3,17 @@ class WelcomesController < ApplicationController
   before_action :set_user, except: [:connect, :index, :oauth2callback]
   before_action :initialize_easy_steps
 
-  GAPI_SCOPE = "https://www.google.com/m8/feeds%20profile%20https://www.googleapis.com/auth/userinfo.email"
+  GAPI_SCOPE = "https://www.google.com/m8/feeds%20profile%20email"
   GAPI_APPROVAL_PROMPT = "force" # force or auto
 
   #require 'version'
-  require 'google/api_client'
+  require 'googleauth'
+  require 'google/apis/plus_v1'
   require 'google/api_client/client_secrets'
 
-  # WELCOME 
+  # WELCOME
   def index
-    
+
   end
 
   # STEP 1 - CONNECT - AUTHENTICATE/AUTHORIZE GOOGLE
@@ -24,11 +25,11 @@ class WelcomesController < ApplicationController
       access_type = "&access_type=offline"
     end
     client_secrets = Google::APIClient::ClientSecrets.load('config/client_secrets.json')
-    redirect_to client_secrets.authorization_uri.to_s + 
-      "?response_type=code" + 
+    redirect_to client_secrets.authorization_uri.to_s +
+      "?response_type=code" +
       "&scope=#{GAPI_SCOPE}" +
       "&redirect_uri=#{oauth2callback_url}" +
-      "&client_id=#{client_secrets.client_id}" + 
+      "&client_id=#{client_secrets.client_id}" +
       "&approval_prompt=#{GAPI_APPROVAL_PROMPT}" +
       "#{access_type}",
       status: 303
@@ -37,9 +38,10 @@ class WelcomesController < ApplicationController
 
   # STEP 1.5 - STORE AUTHORIZATION, REDIRECT TO CONNECTED
   # GET https://www.googleapis.com/plus/v1/people/me?key={YOUR_API_KEY}
+  #Google::Auth::UserAuthorizer.new
   def oauth2callback
     if params[:code]
-      client = Google::APIClient.new(application_name: APP_NAME, application_version: VERSION)
+      client = Google::Apis::PlusV1::PlusService.new
       client_secrets = Google::APIClient::ClientSecrets.load('config/client_secrets.json')
       client.authorization = client_secrets.to_authorization
       client.authorization.scope = GAPI_SCOPE
@@ -48,11 +50,10 @@ class WelcomesController < ApplicationController
       client.authorization.fetch_access_token!
 
       # get information from google about who the user is
-      oauth = client.discovered_api('oauth2')
-      results = client.execute!(:api_method => oauth.userinfo.get, :parameters => {"userId" => "me"})
-      json_results = JSON.parse(results.body)
-      email = json_results["email"]
-      name = json_results["name"]
+      #oauth = client.discovered_api('oauth2')
+      results = client.get_person('me')
+      email = results.emails.first.value
+      name = results.display_name
       #verified = json_results["verified_email"]
       #picture = json_results["picture"]
 
@@ -67,19 +68,17 @@ class WelcomesController < ApplicationController
       user.save
 
       session[:user]= user.md5
-      
+
       redirect_to action: :connected
     else
-      redirect_to :root, :alert => "Permission was not granted to access your Google information.  This application can't work without it." 
+      redirect_to :root, :alert => "Permission was not granted to access your Google information.  This application can't work without it."
     end
   end
 
   # STEP 2 - CONNECTED, NEXT - VERIFY
   def connected
     # test to see if this works
-    client = Google::APIClient.new(application_name: APP_NAME, application_version: VERSION)
-    client.authorization = @user.authorization
-    if client.authorization.nil? 
+    if @user.authorization.nil?
       redirect_to :root, :alert => "We were unable to retrieve your information from Google.  Please try again."
     end
     @connect_status = "success"
@@ -205,11 +204,11 @@ class WelcomesController < ApplicationController
   # manually: https://security.google.com/settings/security/permissions?hl=en&pli=1
   def revoke
     if @user
-      client = Google::APIClient.new(application_name: APP_NAME, application_version: VERSION)
-      client.authorization = @user.authorization
-
-      if !client.authorization.nil?
-        results = client.execute!(:uri => "https://accounts.google.com/o/oauth2/revoke", :parameters => {"token" => client.authorization.access_token})
+      if !@user.authorization.nil?
+        uri = URI('https://accounts.google.com/o/oauth2/revoke')
+        params = { :token => @user.authorization.access_token }
+        uri.query = URI.encode_www_form(params)
+        response = Net::HTTP.get(uri)
       end
     end
 
@@ -230,6 +229,9 @@ class WelcomesController < ApplicationController
 
     # Set the default styles for the easy_steps partial so we can indicate progress
     def initialize_easy_steps
+      Google::Apis::ClientOptions.default.application_name = APP_NAME
+      Google::Apis::ClientOptions.default.application_version = VERSION
+
       @connect_status = "info"
       @verify_status = "gray"
       @import_status = "gray"

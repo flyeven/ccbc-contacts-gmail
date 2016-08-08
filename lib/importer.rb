@@ -1,4 +1,5 @@
-require 'google/api_client'
+require 'googleauth'
+require 'google/apis/plus_v1'
 require 'google/api_client/client_secrets'
 
 class Importer
@@ -40,7 +41,7 @@ class Importer
       overrides.each do |k, v|
         if opts.include?(k)
           v.each do |h|
-            opts[k].each do |oh| 
+            opts[k].each do |oh|
               if oh[:name] == h[:name]
                 oh[:value] = h[:value]
                 break
@@ -58,7 +59,7 @@ class Importer
 
   # returns counts added, updated, deleted, and skipped
   #
-  # 10/2/14 The way this needs to work now is to pull back all 
+  # 10/2/14 The way this needs to work now is to pull back all
   # individuals changed since the last time the ccb_config source
   # was queried and add/update them in the individuals table.  Then
   # we need to add into the individuals array to process all of the
@@ -74,9 +75,11 @@ class Importer
     end
 
     # get the user's access token
-    google_api_client = Google::APIClient.new(application_name: APP_NAME, application_version: VERSION)
+    #google_api_client = Google::APIClient.new(application_name: APP_NAME, application_version: VERSION)
+    google_api_client = Google::Apis::PlusV1::PlusService.new
+
     google_api_client.authorization = user.authorization
-    if google_api_client.authorization.nil? 
+    if google_api_client.authorization.nil?
       raise ArgumentException, "authorization information is missing"
     end
     #google_api_client.authorization.fetch_access_token!
@@ -91,8 +94,8 @@ class Importer
     ccb_config = CcbConfig.find(user.ccb_config_id)
     subdomain = initialize_ccb_api(ccb_config.subdomain, ccb_config.api_user, ccb_config.api_password)
 
-    # identify the gmail groups 
-    # ccb_group = "#{subdomain}.ccb" group 
+    # identify the gmail groups
+    # ccb_group = "#{subdomain}.ccb" group
     # my_contacts_group = "my contacts" system group
     contacts_api_client = GContacts::Client.new(:access_token => google_api_client.authorization.access_token)
     groups = contacts_api_client.all(api_type: :groups)
@@ -151,13 +154,13 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
       # add/update the individual in the local database
       local_individual = Individual.find_by(ccb_config_id: ccb_config.id, individual_id: i.id)
       if local_individual.nil?
-        local_individual = Individual.create(ccb_config_id: ccb_config.id, 
+        local_individual = Individual.create(ccb_config_id: ccb_config.id,
           individual_id: i.id, family_id: i.family_id, object_json: i)
       else
         local_individual.object_json = i
         local_individual.save
       end
-    end
+    end unless ccb_individuals.blank?
 
     # free the ccb_individuals since we have what we need now in the db and in the queue
     ccb_individuals = nil
@@ -166,7 +169,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
     # if merging spouse with Primary Contact then do it while scanning queue
     # and add it to the spouse hash which we will use to skip the spouse and
-    # to merge the spouses disparate info 
+    # to merge the spouses disparate info
     spouses = Hash.new
 
     # load all the family members in also
@@ -208,7 +211,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
     # for each ccb individual add to the gmail group if possible
     ccb_queue.each do |k, i|
       if spouses.has_value?(k)  #skip this person if they are in the skip list
-        next 
+        next
       end
 
       # find the corresponding gmail contacts record for this individual
@@ -257,11 +260,11 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
         people.each do |i|
           if !i.email.blank?
-            emails << { "@rel" => "http://schemas.google.com/g/2005#other", "@address" => i.email, "@primary" => (emails.length == 0).to_s } 
+            emails << { "@rel" => "http://schemas.google.com/g/2005#other", "@address" => i.email, "@primary" => (emails.length == 0).to_s }
           end
 
           # set phones
-          { 
+          {
             "home" => "home_phone",
             "mobile" => "mobile_phone",
             "main" => "contact_phone",
@@ -269,14 +272,14 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           }.each do |type, key|
             if present_and_public?(i, key)
               if !phone_entries.include?(i.send(key))
-                phones << { "@rel" => "http://schemas.google.com/g/2005##{type}", "text" => i.send(key) } 
+                phones << { "@rel" => "http://schemas.google.com/g/2005##{type}", "text" => i.send(key) }
                 phone_entries << i.send(key)
               end
             end
           end
 
           # set addresses
-          { 
+          {
             "home" => "home_address",
             "work" => "work_address",
             "other" => "mailing_address",
@@ -288,7 +291,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
             if !line_1.blank? && !line_2.blank?  && present_and_public?(i, key)
               if !address_entries.include?("#{line_1}:#{line_2}")
                 addresses << { "gd:formattedAddress" => line_1 + "\n" + line_2,
-                  "@rel" => "http://schemas.google.com/g/2005##{type}" } 
+                  "@rel" => "http://schemas.google.com/g/2005##{type}" }
                 address_entries << "#{line_1}:#{line_2}"
               end
             end
@@ -350,7 +353,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
             if i.family_position == "Primary Contact" or i.family_position == "Spouse"
               # load all family relations (primary or spouse first)
               nc.content << "\nFamily Members:\n"
-              i.family_members["family_member"].sort_by do |e| 
+              i.family_members["family_member"].sort_by do |e|
                 value = e["individual"]["content"]
                 value = "" if e["family_position"] == "Primary Contact" or e["family_position"] == "Spouse"
                 value
@@ -379,7 +382,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
                   name = f.first_name if f.last_name == i.last_name
                 end
 # todo: change family position from Primary Contact to Spouse if the
-# Primary Contact has this person i listed as their Spouse                
+# Primary Contact has this person i listed as their Spouse
                 nc.content << "-#{name} (#{data["family_position"]}) #{age_info}\n"
                 # use data["individual"]["id"] to look up the family member
               end unless i.family_members.blank?
@@ -434,7 +437,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
           # set birthday
           if present_and_public?(i, 'birthday')
-            data["gContact:birthday"] = { "@when" => i.birthday } 
+            data["gContact:birthday"] = { "@when" => i.birthday }
           else
             # remove it?
             data.delete("gContact:birthday") if data.include?("gContact:birthday")
@@ -520,7 +523,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
   # check to see if the image is a stock_image (or empty)
   def self.stock_image?(image_url)
     results = image_url.blank? or image_url.include? "default"
-    # results = results or File.basename(image_url) == "profile-default.gif" or 
+    # results = results or File.basename(image_url) == "profile-default.gif" or
     #   !image_url.include?("?") or File.basename(image_url) == "group-sm-default.gif"
   end
 
@@ -530,7 +533,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
 # make everything available for now since only leadership is using this
 #    !value.blank? && (individual.privacy_settings.include?(key) ? individual.privacy_settings[key]["id"] >= "4" : true)
-    !value.blank? 
+    !value.blank?
   end
 
   def self.find_contact(contacts, ccb_id)
@@ -572,7 +575,7 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
       begin
         Rails.logger.debug("running import for #{user.name} since #{user.since}")
         Importer.perform_import(user)
-# TODO: send email upon completion, if desired        
+# TODO: send email upon completion, if desired
       rescue => e
         Airbrake.notify_or_ignore e if Rails.env.production?
         Rails.logger.error("scheduled import for #{user.name} failed.")

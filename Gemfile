@@ -61,6 +61,7 @@ group :development do
 end
 
 gem 'google-api-client'
+gem 'googleauth'
 
 #dev
 #gem 'church-community-builder', :require => 'ccb_api', path: '../church-community-builder-api-ruby'
