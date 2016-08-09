@@ -318,41 +318,41 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           nc.groups << my_contacts_group.id
 
           ## build the notes (from scratch)
-          nc.content = ""
+          content = "--- from ccb as of #{i.modified.to_date.strftime('%m/%d/%y')}]\n"
 
           # indicate allergies
           if option_set?(options, "allergies") and present_and_public?(i, 'allergies')
-            nc.content << "Allergies: #{i.allergies}\n"
+            content << "Allergies: #{i.allergies}\n"
           end
 
           # indicate membership type and family members in comments
           if option_set?(options, "membership") and !i.membership_type["content"].blank?
-            nc.content << i.membership_type["content"]
+            content << i.membership_type["content"]
             if i.membership_end.blank? and i.membership_date.blank?
               # no range specified
             elsif !i.membership_end.blank? and !i.membership_date.blank?
-              nc.content << " (#{DateTime.parse(i.membership_date).strftime("%B %e, %Y")} - #{DateTime.parse(i.membership_end).strftime("%B %e, %Y")})"
+              content << " (#{DateTime.parse(i.membership_date).strftime("%B %e, %Y")} - #{DateTime.parse(i.membership_end).strftime("%B %e, %Y")})"
             elsif i.membership_end.blank?
-              nc.content << " (since #{DateTime.parse(i.membership_date).strftime("%B %e, %Y")})"
+              content << " (since #{DateTime.parse(i.membership_date).strftime("%B %e, %Y")})"
             end
-            nc.content << "\n"
+            content << "\n"
           end
 
           # indicate marital status
           if option_set?(options, 'marital_status') and present_and_public?(i, 'marital_status')
-            nc.content << "Marital Status: #{i.marital_status}\n"
+            content << "Marital Status: #{i.marital_status}\n"
           end
 
           # indicate anniversary
           if present_and_public?(i, 'anniversary')
-            nc.content << "Anniversary: " + DateTime.parse(i.anniversary).strftime("%B %e, %Y") + "\n"
+            content << "Anniversary: " + DateTime.parse(i.anniversary).strftime("%B %e, %Y") + "\n"
           end
 
           # indicate family members or primary contact
           if i.family_members
             if i.family_position == "Primary Contact" or i.family_position == "Spouse"
               # load all family relations (primary or spouse first)
-              nc.content << "\nFamily Members:\n"
+              content << "\nFamily Members:\n"
               i.family_members["family_member"].sort_by do |e|
                 value = e["individual"]["content"]
                 value = "" if e["family_position"] == "Primary Contact" or e["family_position"] == "Spouse"
@@ -383,14 +383,14 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
                 end
 # todo: change family position from Primary Contact to Spouse if the
 # Primary Contact has this person i listed as their Spouse
-                nc.content << "-#{name} (#{data["family_position"]}) #{age_info}\n"
+                content << "-#{name} (#{data["family_position"]}) #{age_info}\n"
                 # use data["individual"]["id"] to look up the family member
               end unless i.family_members.blank?
             else
               # just load primary contact
               i.family_members["family_member"].each do |data|
                 if data["family_position"] == "Primary Contact"
-                  nc.content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
+                  content << data["family_position"] + ": " + data["individual"]["content"] + "\n"
                 end
               end unless i.family_members.blank?
             end
@@ -400,9 +400,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           if option_set?(options, 'significant_events')
             ise = ccb_individual_significant_events.find_by_id(i.id)
             if ise and !ise.significant_events.empty?
-              nc.content << "\nSignificant Events:\n"
+              content << "\nSignificant Events:\n"
               ise.significant_events.each do |e|
-                nc.content << "-#{e[:name]} #{DateTime.parse(e[:date]).strftime("%B %e, %Y")}\n"
+                content << "-#{e[:name]} #{DateTime.parse(e[:date]).strftime("%B %e, %Y")}\n"
               end
             end
           end
@@ -411,9 +411,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
           if option_set?(options, 'groups')
             ig = ccb_individual_groups.find_by_id(i.id)
             if ig and !ig.groups.empty?
-              nc.content << "\nGroups:\n"
+              content << "\nGroups:\n"
               ig.groups.sort_by {|e| e.name }.each do |g|
-                nc.content << "-#{g.name}\n"
+                content << "-#{g.name}\n"
               end
             end
           end
@@ -423,7 +423,9 @@ Rails.logger.debug("#{ccb_group.content} has #{gmail_contacts.count} contacts")
 
 
           # let people know how old the entry is
-          nc.content << "\n[from ccb as of #{i.modified.to_date.strftime('%m/%d/%y')}]"
+          # nc.content << "\n[from ccb as of #{i.modified.to_date.strftime('%m/%d/%y')}]"
+
+          nc.content = content
 
   # TODO: maybe we have to go to the family record to get stuff like phone numbers and addresses?
   # use i.family["id"] to get family info
