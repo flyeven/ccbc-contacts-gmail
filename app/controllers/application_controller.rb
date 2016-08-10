@@ -4,7 +4,7 @@ class ApplicationController < ActionController::Base
   protect_from_forgery with: :exception
 
   rescue_from Exception do |exception|
-    notify_airbrake exception
+    # notify_airbrake exception
     Rails.logger.error(exception.inspect)
     Rails.logger.error(exception.backtrace.join("\n"))
     message = exception.message
