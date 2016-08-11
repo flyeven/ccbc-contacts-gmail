@@ -126,8 +126,8 @@ class WelcomesController < ApplicationController
       flash.now[:alert] = "Unable to connect to your ccb site (#{ccb_subdomain}) with the credentials provided.  Please check them and try again."
     elsif @ccb_individuals.empty?
       flash.now[:alert] = "No individual at your ccb site (#{ccb_subdomain}) could be found with that email address."
-    elsif @ccb_individuals.count > 1
-      flash.now[:alert]  = "Too many individuals at your ccb site (#{ccb_subdomain}) matched that email address."
+    #elsif @ccb_individuals.count > 1
+    #  flash.now[:alert]  = "Too many individuals at your ccb site (#{ccb_subdomain}) matched that email address."
     else
       if ccb_config.blank?
         # we need to lookup and save the credentials
